@@ -265,7 +265,8 @@ def main() -> int:
     repo_url = os.getenv("AUGUST_REPO_URL", f"https://github.com/{repo}.git")
     repo_dir = Path(os.getenv("AUGUST_REPO_DIR", str(Path.home() / "august_adventure")))
     state_path = Path.home() / ".picoclaw" / "workspace" / "august-playtest" / "state.json"
-    token = os.getenv("AUGUST_GITHUB_TOKEN", "")
+    raw_token = os.getenv("AUGUST_GITHUB_TOKEN", "")
+    token = raw_token if raw_token and raw_token not in {"ghp_replace_me", "replace_me"} else ""
     force = os.getenv("AUGUST_FORCE", "0") == "1"
 
     state = load_state(state_path)
@@ -294,6 +295,8 @@ def main() -> int:
     opened = 0
     skipped = 0
 
+    github_errors: list[str] = []
+
     if token:
         for bug in suggestions["bugs"]:
             title = f"[August][Bug] {clean_line(str(bug.get('title', 'Playtest bug')))}"
@@ -311,7 +314,11 @@ def main() -> int:
                 f"- pytest exit: {test_results['pytest'].code}\n"
                 f"- smoke exit: {test_results['smoke'].code}\n"
             )
-            create_issue(repo, token, title, body, ["august-feedback", "bug", "playtest", "triage-needed"])
+            try:
+                create_issue(repo, token, title, body, ["august-feedback", "bug", "playtest", "triage-needed"])
+            except Exception as exc:  # noqa: BLE001
+                github_errors.append(f"create bug issue failed: {exc}")
+                continue
             open_titles.add(title)
             opened += 1
 
@@ -328,7 +335,11 @@ def main() -> int:
                 f"- pytest exit: {test_results['pytest'].code}\n"
                 f"- smoke exit: {test_results['smoke'].code}\n"
             )
-            create_issue(repo, token, title, body, ["august-feedback", "feature", "playtest", "triage-needed"])
+            try:
+                create_issue(repo, token, title, body, ["august-feedback", "feature", "playtest", "triage-needed"])
+            except Exception as exc:  # noqa: BLE001
+                github_errors.append(f"create feature issue failed: {exc}")
+                continue
             open_titles.add(title)
             opened += 1
 
@@ -342,8 +353,10 @@ def main() -> int:
     )
     save_state(state_path, state)
 
-    mode = "full" if token else "dry-run-no-github-token"
+    mode = "full" if token and not github_errors else ("dry-run-no-github-token" if not token else "github-errors")
     summary = format_summary(repo, sha, test_results, opened, skipped, mode)
+    if github_errors:
+        summary += "\nGitHub errors:\n- " + "\n- ".join(github_errors[:5])
     print(summary)
 
     discord_token, owner_id = load_picoclaw_discord()
