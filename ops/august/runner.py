@@ -66,10 +66,19 @@ def ensure_venv(repo_dir: Path) -> Path:
     venv = repo_dir / ".venv"
     python = venv / "bin" / "python"
     pip = venv / "bin" / "pip"
+
+    if venv.exists() and (not python.exists() or not pip.exists()):
+        run_cmd(["rm", "-rf", str(venv)], cwd=repo_dir)
+
     if not python.exists():
         mk = run_cmd(["python3", "-m", "venv", str(venv)], cwd=repo_dir)
         if mk.code != 0:
             raise RuntimeError(f"venv create failed: {mk.err}")
+
+    if not pip.exists():
+        ep = run_cmd([str(python), "-m", "ensurepip", "--upgrade"], cwd=repo_dir)
+        if ep.code != 0:
+            raise RuntimeError(f"ensurepip failed: {ep.err}")
 
     up = run_cmd([str(pip), "install", "-q", "--upgrade", "pip"], cwd=repo_dir, timeout=600)
     if up.code != 0:
