@@ -116,3 +116,9 @@ Track triage outcomes for August-originated feedback.
   Status: deferred
   Reason: Latest consolidated review at commit a39242bfeba6; same findings as #20 (idol inconsistency, lamp utility). Supersedes #20 as primary reference; action items already tracked in accepted issues #18 (idol purpose) and #17 (lamp utility deferred).
   Planned milestone: M2 - Puzzle Depth
+
+- Issue: `#22`
+  Status: accepted
+  Reason: Latest consolidated review (3.33/5); confirms idol placement working (#18) and highlights remaining gaps. Narrative fit HIGH (lore expansion fits world), Location fit HIGH (Foyer glyphs, Treasury pedestal). Will implement: lamp reveals Foyer inscriptions, tablet contains cryptic verses.
+  Planned milestone: M2 - Puzzle Depth
+  Implemented: Lamp reveals faded inscriptions on Foyer walls; tablet grants cryptic verses hinting at broader purpose.

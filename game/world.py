@@ -26,8 +26,9 @@ def build_world() -> dict[str, Room]:
         "foyer": Room(
             name="Foyer",
             description=(
-                "A vaulted antechamber opens around you, its moss-dark walls etched with faded glyphs. "
-                "A narrow passage bends east while daylight lingers weakly to the south."
+                "A vaulted antechamber opens around you, its moss-dark walls etched with faded glyphs "
+                "that seem to shift in the dim light. Strange inscriptions cover the stonework, "
+                "their meaning lost to time. A narrow passage bends east while daylight lingers weakly to the south."
             ),
             exits={"south": "trailhead", "east": "cavern"},
             items=["key"],

@@ -42,7 +42,7 @@ def test_coin_unlocks_tablet_reward() -> None:
     engine.step("north")
 
     use_coin, _ = engine.step("use coin")
-    assert "revealing a tablet" in use_coin.lower()
+    assert "revealing" in use_coin.lower() and "tablet" in use_coin.lower()
 
     take_tablet, _ = engine.step("take tablet")
     assert "Taken: tablet." == take_tablet
@@ -99,3 +99,35 @@ def test_idol_placement_reveals_alcove() -> None:
     look, _ = engine.step("look")
     assert "idol" in look.lower()
     assert "rests upon the pedestal" in look.lower()
+
+
+def test_lamp_reveals_foyer_inscriptions() -> None:
+    engine = GameEngine(seed=5)
+
+    engine.step("take lamp")
+    engine.step("north")
+
+    use_lamp, _ = engine.step("use lamp")
+    assert "glyphs" in use_lamp.lower() or "inscriptions" in use_lamp.lower()
+    assert "river" in use_lamp.lower() or "water" in use_lamp.lower()
+    assert "echoes" in use_lamp.lower()
+
+
+def test_tablet_contains_cryptic_verses() -> None:
+    engine = GameEngine(seed=6)
+
+    engine.step("take lamp")
+    engine.step("north")
+    engine.step("take key")
+    engine.step("east")
+    engine.step("use key")
+    engine.step("use lamp")
+    engine.step("take coin")
+    engine.step("north")
+    engine.step("use coin")
+    engine.step("take tablet")
+
+    use_tablet, _ = engine.step("use tablet")
+    assert "river" in use_tablet.lower()
+    assert "echoes" in use_tablet.lower()
+    assert "tablet" in use_tablet.lower()

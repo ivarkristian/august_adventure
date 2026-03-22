@@ -158,6 +158,13 @@ class GameEngine:
                 self.current_room().items.append("coin")
             return "You raise the lamp. A hidden coin glints near a rock."
 
+        if item == "lamp" and self.state.location == "foyer" and not self.state.flags.get("foyer_inscriptions_seen"):
+            self.state.flags["foyer_inscriptions_seen"] = True
+            return (
+                "You raise the lamp. The faded glyphs on the walls sharpen into focus: "
+                "'The river's memory flows deep. Where water echoes, truth sleeps.'"
+            )
+
         if item == "key" and self.state.location == "cavern":
             if self.state.flags.get("cavern_north_unlocked"):
                 return "The bronze gate is already unlocked."
@@ -172,7 +179,11 @@ class GameEngine:
             self.state.inventory.remove("coin")
             if "tablet" not in self.current_room().items:
                 self.current_room().items.append("tablet")
-            return "You place the coin in the pedestal slot. A hidden compartment slides open, revealing a tablet."
+            return (
+                "You place the coin in the pedestal slot. A hidden compartment slides open, "
+                "revealing a weathered tablet. Strange symbols cover its surface, hinting at a purpose "
+                "beyond these ruins."
+            )
 
         if item == "idol" and self.state.location == "treasury":
             if self.state.flags.get("idol_placed"):
@@ -184,6 +195,13 @@ class GameEngine:
                 "You set the idol upon the pedestal. Ancient mechanisms grind to life. "
                 "A hidden alcove shimmers into existence, inscribed with forgotten verses: "
                 "'The worthy who seek shall find. The worthy who give shall receive.'"
+            )
+
+        if item == "tablet":
+            return (
+                "You study the weathered tablet. The strange symbols resolve into words: "
+                "'The river remembers what the stone forgets. Seek the echoes where the water weeps. "
+                "There, beneath the weight of ages, the true tablet awaits.'"
             )
 
         return f"You try using the {item}, but nothing happens."
