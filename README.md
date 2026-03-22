@@ -48,3 +48,8 @@ python scripts/playthrough_smoke.py
 2. August pulls latest `main`, runs tests + playthrough.
 3. August files bug/feature issues and posts Discord summary.
 4. OpenCode triages all August feedback before the next implementation cycle.
+
+## Automation Runbook
+
+- GitHub and branch policy setup: `docs/github_setup.md`
+- August autonomous tester setup: `docs/august_playtest_automation.md`

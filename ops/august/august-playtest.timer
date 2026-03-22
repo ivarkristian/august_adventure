@@ -1,0 +1,11 @@
+[Unit]
+Description=Run August Adventure playtest automation periodically
+
+[Timer]
+OnBootSec=5m
+OnUnitActiveSec=1h
+Persistent=true
+Unit=august-playtest.service
+
+[Install]
+WantedBy=timers.target
