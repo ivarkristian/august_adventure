@@ -60,6 +60,7 @@ python scripts/playthrough_smoke.py
 - GitHub and branch policy setup: `docs/github_setup.md`
 - August autonomous tester setup: `docs/august_playtest_automation.md`
 - Qualitative scoring anchors: `docs/playtest_rubric.md`
+- OpenCode hourly dev loop setup: `docs/opencode_dev_loop.md`
 
 August automation keeps historical text artifacts in `history_docs/` on the August host,
 including source-derived maps, playthrough-derived maps, role notes, and story-arc notes for each tested commit.
