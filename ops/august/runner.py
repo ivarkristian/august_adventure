@@ -188,11 +188,36 @@ def env_positive_int(name: str, default: int) -> int:
 
 
 def parse_json_object(text: str) -> dict[str, Any]:
-    start = text.find("{")
-    end = text.rfind("}")
+    ansi_clean = re.sub(r"\x1B\[[0-?]*[ -/]*[@-~]", "", text)
+
+    fenced: list[str] = []
+    for match in re.finditer(r"```json\s*(\{.*?\})\s*```", ansi_clean, flags=re.IGNORECASE | re.DOTALL):
+        fenced.append(match.group(1))
+
+    for block in reversed(fenced):
+        try:
+            data = json.loads(block)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(data, dict):
+            return data
+
+    decoder = json.JSONDecoder()
+    for i, ch in enumerate(ansi_clean):
+        if ch != "{":
+            continue
+        try:
+            data, _end = decoder.raw_decode(ansi_clean[i:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(data, dict):
+            return data
+
+    start = ansi_clean.find("{")
+    end = ansi_clean.rfind("}")
     if start == -1 or end == -1 or end <= start:
         return {}
-    blob = text[start : end + 1]
+    blob = ansi_clean[start : end + 1]
     try:
         data = json.loads(blob)
     except json.JSONDecodeError:
