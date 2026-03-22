@@ -127,3 +127,8 @@ Track triage outcomes for August-originated feedback.
   Status: deferred
   Reason: Latest review at commit e23eae75e002; same consolidated findings as #22. Supersedes all prior reviews. Remaining action items: fix idol duplication bug (idol appears twice in Treasury after placement), develop water echoes into a lamp interaction in the cavern.
   Planned milestone: M2 - Puzzle Depth
+
+- Issue: `#24`
+  Status: deferred
+  Reason: Latest consolidated review at commit ca5025da34f2 (same commit as #22); Narrative fit HIGH (same lore-expansion themes), Location fit HIGH (same Foyer/Cavern/Treasury). Findings are already tracked in accepted issues: lamp reveals water echoes (#19) and idol consistency (#11/#18) addressed in ca5025d. Superseded by #22 as primary reference.
+  Planned milestone: M2 - Puzzle Depth
