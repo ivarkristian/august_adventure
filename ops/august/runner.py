@@ -405,10 +405,81 @@ def ask_august_consultant(
         max_bugs,
         max_features,
     )
-    result = run_cmd(["picoclaw", "agent", "-m", prompt], timeout=420)
-    text = "\n".join(part for part in [result.out, result.err] if part)
-    parsed = parse_json_object(text)
-    return normalize_suggestions(parsed, max_bugs, max_features)
+
+    def is_meaningful(pack: dict[str, Any]) -> bool:
+        review = pack.get("overall_review", {}) if isinstance(pack, dict) else {}
+        if not isinstance(review, dict):
+            return False
+        if str(review.get("overall_thoughts", "")).strip():
+            return True
+        if isinstance(review.get("top_strengths"), list) and review.get("top_strengths"):
+            return True
+        if isinstance(review.get("top_improvements"), list) and review.get("top_improvements"):
+            return True
+        return False
+
+    attempts: list[str] = [prompt]
+
+    concise_transcript = ""
+    for key in ["puzzle_solver", "curious_explorer", "skeptical_breaker"]:
+        if key in exploratory and exploratory[key].strip():
+            concise_transcript = exploratory[key][:1800]
+            break
+
+    concise_prompt = f"""
+You are August, a text-adventure playtester. Return STRICT JSON only.
+Use rubric anchors exactly; do not invent scoring scales.
+
+Rubric:
+{rubric_text[:3500]}
+
+Context:
+- Commit: {commit_sha}
+- Pytest exit: {test_results['pytest'].code}
+- Smoke exit: {test_results['smoke'].code}
+- Smoke output excerpt:
+{test_results['smoke'].out[:1400]}
+
+- Exploratory excerpt:
+{concise_transcript}
+
+Schema:
+{{
+  "overall_review": {{
+    "overall_thoughts": "string",
+    "dimension_scores": [
+      {{"dimension":"environment_richness","score":1-5,"why":"string"}},
+      {{"dimension":"description_vividness","score":1-5,"why":"string"}},
+      {{"dimension":"puzzle_challenge","score":1-5,"why":"string"}},
+      {{"dimension":"player_agency","score":1-5,"why":"string"}},
+      {{"dimension":"world_coherence","score":1-5,"why":"string"}},
+      {{"dimension":"curiosity_engagement","score":1-5,"why":"string"}}
+    ],
+    "location_assessment":"string",
+    "quests_challenges_assessment":"string",
+    "agency_assessment":"string",
+    "top_strengths":["string"],
+    "top_improvements":["string"]
+  }},
+  "bugs": [{{"title":"string","summary":"string","repro_steps":["string"],"severity":"low|medium|high"}}],
+  "features": [{{"title":"string","player_value":"string","proposal":"string"}}]
+}}
+
+Limits:
+- max {max_bugs} bugs
+- max {max_features} features
+""".strip()
+    attempts.append(concise_prompt)
+
+    for attempt in attempts:
+        result = run_cmd(["picoclaw", "agent", "-m", attempt], timeout=420)
+        text = "\n".join(part for part in [result.out, result.err] if part)
+        parsed = parse_json_object(text)
+        pack = normalize_suggestions(parsed, max_bugs, max_features)
+        if is_meaningful(pack):
+            return pack
+
+    return normalize_suggestions({}, max_bugs, max_features)
 
 
 def format_iso_to_ts(iso_text: str) -> float:
