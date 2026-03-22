@@ -12,18 +12,35 @@ This runbook sets up August (`192.168.0.96`) to monitor and test this repository
 4. Run:
    - `pytest`
    - `python scripts/playthrough_smoke.py`
-5. Run one exploratory playthrough transcript.
-6. Ask August model for up to 2 bug reports and 2 feature suggestions.
-7. Create GitHub issues (if `AUGUST_GITHUB_TOKEN` is configured).
-8. DM a run summary to the owner via Discord bot token already in PicoClaw config.
+5. Run three exploratory playthroughs (explorer, puzzle, skeptic).
+6. Ask August for a structured assessment using:
+   - `docs/playtest_rubric.md`
+   - `ops/august/consultant_roles.md`
+7. Produce:
+   - up to 3 bug issues,
+   - up to 3 feature issues,
+   - 1 qualitative overall review issue.
+8. DM a technical + qualitative summary to the owner via Discord.
 
-## Required Credential
+## Required Credentials
 
-Add a GitHub bot token to:
+Preferred auth is a GitHub App.
+
+Add app credentials to:
 
 `~/.config/august-playtest.env`
 
-Required permission scope: repo issues for this repository.
+Required app permission: **Issues: Read and write** on this repository.
+
+Set:
+
+- `AUGUST_GH_APP_ID`
+- `AUGUST_GH_INSTALLATION_ID`
+- `AUGUST_GH_APP_PRIVATE_KEY_PATH`
+
+Store the app private key file at the configured path with mode `600`.
+
+Fallback auth (`AUGUST_GITHUB_TOKEN`) is supported but not recommended.
 
 ## Install On August Host
 
@@ -40,7 +57,14 @@ Then edit env file:
 nano ~/.config/august-playtest.env
 ```
 
-Set `AUGUST_GITHUB_TOKEN=...`.
+Set app credentials (recommended) or fallback PAT.
+
+If using app auth, verify key permissions:
+
+```bash
+chmod 600 ~/.config/august-github-app.pem
+chmod 600 ~/.config/august-playtest.env
+```
 
 ## Operations
 
@@ -62,3 +86,9 @@ Force test even without new commit:
 ```bash
 AUGUST_FORCE=1 systemctl --user start august-playtest.service
 ```
+
+## Notes
+
+- Overall score is the arithmetic average of all rubric dimensions.
+- If GitHub auth is missing, runner still executes tests and sends DM summary in dry-run mode.
+- `AUGUST_MAX_BUGS` and `AUGUST_MAX_FEATURES` control per-run issue caps.

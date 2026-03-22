@@ -53,3 +53,4 @@ python scripts/playthrough_smoke.py
 
 - GitHub and branch policy setup: `docs/github_setup.md`
 - August autonomous tester setup: `docs/august_playtest_automation.md`
+- Qualitative scoring anchors: `docs/playtest_rubric.md`
