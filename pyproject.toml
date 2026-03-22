@@ -18,6 +18,9 @@ dev = [
 [project.scripts]
 august-adventure = "game.cli:main"
 
+[tool.setuptools.packages.find]
+include = ["game*"]
+
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]
