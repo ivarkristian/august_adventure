@@ -75,6 +75,7 @@ Track triage outcomes for August-originated feedback.
   Status: accepted
   Reason: Giving the idol a clearer gameplay purpose strengthens reward structure and long-term goals.
   Planned milestone: M2 - Puzzle Depth
+  Implemented: Idols can be placed on the Treasury pedestal, revealing hidden alcove with ancient verses.
 
 - Issue: `#17`
   Status: deferred
@@ -110,3 +111,8 @@ Track triage outcomes for August-originated feedback.
   Status: deferred
   Reason: Could not reproduce a deterministic idol-spawn bug; monitor in future runs before treating as engine defect.
   Planned milestone: M1 - Core Loop
+
+- Issue: `#21`
+  Status: deferred
+  Reason: Latest consolidated review at commit a39242bfeba6; same findings as #20 (idol inconsistency, lamp utility). Supersedes #20 as primary reference; action items already tracked in accepted issues #18 (idol purpose) and #17 (lamp utility deferred).
+  Planned milestone: M2 - Puzzle Depth

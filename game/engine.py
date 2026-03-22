@@ -81,6 +81,9 @@ class GameEngine:
         if self.state.location == "treasury" and not self.state.flags.get("coin_offered"):
             lines.append("The pedestal slot looks exactly coin-sized.")
 
+        if self.state.location == "treasury" and self.state.flags.get("idol_placed"):
+            lines.append("The idol rests upon the pedestal, and a hidden alcove gleams with ancient verses.")
+
         if room.items:
             lines.append("You see: " + ", ".join(sorted(room.items)) + ".")
         else:
@@ -170,6 +173,18 @@ class GameEngine:
             if "tablet" not in self.current_room().items:
                 self.current_room().items.append("tablet")
             return "You place the coin in the pedestal slot. A hidden compartment slides open, revealing a tablet."
+
+        if item == "idol" and self.state.location == "treasury":
+            if self.state.flags.get("idol_placed"):
+                return "The idol already rests upon the pedestal."
+            self.state.flags["idol_placed"] = True
+            self.state.inventory.remove("idol")
+            self.current_room().items.append("idol")
+            return (
+                "You set the idol upon the pedestal. Ancient mechanisms grind to life. "
+                "A hidden alcove shimmers into existence, inscribed with forgotten verses: "
+                "'The worthy who seek shall find. The worthy who give shall receive.'"
+            )
 
         return f"You try using the {item}, but nothing happens."
 

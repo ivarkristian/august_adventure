@@ -77,3 +77,25 @@ def test_save_load_roundtrip(tmp_path: Path) -> None:
 
     inv, _ = e2.step("inventory")
     assert "lamp" in inv and "key" in inv
+
+
+def test_idol_placement_reveals_alcove() -> None:
+    engine = GameEngine(seed=4)
+
+    engine.step("north")
+    engine.step("take key")
+    engine.step("east")
+    engine.step("use key")
+    engine.step("north")
+
+    engine.step("take idol")
+    use_idol, _ = engine.step("use idol")
+    assert "hidden alcove" in use_idol.lower()
+    assert "forgotten verses" in use_idol.lower()
+
+    inv, _ = engine.step("inventory")
+    assert "idol" not in inv
+
+    look, _ = engine.step("look")
+    assert "idol" in look.lower()
+    assert "rests upon the pedestal" in look.lower()

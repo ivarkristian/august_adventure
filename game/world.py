@@ -46,7 +46,8 @@ def build_world() -> dict[str, Room]:
             name="Treasury",
             description=(
                 "A hidden vault glitters in low amber light. A carved pedestal with a coin-sized slot "
-                "rests near the center, and the only open passage leads south."
+                "rests near the center, and an ancient idol watches from the shadows. "
+                "The only open passage leads south."
             ),
             exits={"south": "cavern"},
             items=["idol"],
