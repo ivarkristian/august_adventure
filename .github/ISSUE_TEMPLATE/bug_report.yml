@@ -1,0 +1,48 @@
+name: Bug report
+description: Report a reproducible game bug
+title: "[Bug]: "
+labels: ["bug", "triage-needed"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      description: Exact commands or test path that triggers the bug
+      placeholder: |
+        1. Start game with --seed 7
+        2. Run commands:
+           take lamp
+           north
+           ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: transcript
+    attributes:
+      label: Transcript snippet
+      description: Paste relevant game output
+  - type: input
+    id: source
+    attributes:
+      label: Source
+      description: Who reported this?
+      placeholder: "August playtest"

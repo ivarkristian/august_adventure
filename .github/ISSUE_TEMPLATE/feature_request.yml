@@ -1,0 +1,30 @@
+name: Feature request
+description: Suggest a game enhancement
+title: "[Feature]: "
+labels: ["feature", "triage-needed"]
+body:
+  - type: textarea
+    id: player-value
+    attributes:
+      label: Player value
+      description: Why would this improve the player experience?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Describe the desired feature
+    validations:
+      required: true
+  - type: textarea
+    id: implementation-idea
+    attributes:
+      label: Implementation idea (optional)
+      description: Any concrete thoughts for implementation
+  - type: input
+    id: source
+    attributes:
+      label: Source
+      description: Who proposed this?
+      placeholder: "August creative consultant"

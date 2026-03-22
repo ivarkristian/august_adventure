@@ -1,0 +1,1 @@
+"""August Adventure game package."""
