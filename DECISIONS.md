@@ -122,3 +122,8 @@ Track triage outcomes for August-originated feedback.
   Reason: Latest consolidated review (3.33/5); confirms idol placement working (#18) and highlights remaining gaps. Narrative fit HIGH (lore expansion fits world), Location fit HIGH (Foyer glyphs, Treasury pedestal). Will implement: lamp reveals Foyer inscriptions, tablet contains cryptic verses.
   Planned milestone: M2 - Puzzle Depth
   Implemented: Lamp reveals faded inscriptions on Foyer walls; tablet grants cryptic verses hinting at broader purpose.
+
+- Issue: `#23`
+  Status: deferred
+  Reason: Latest review at commit e23eae75e002; same consolidated findings as #22. Supersedes all prior reviews. Remaining action items: fix idol duplication bug (idol appears twice in Treasury after placement), develop water echoes into a lamp interaction in the cavern.
+  Planned milestone: M2 - Puzzle Depth

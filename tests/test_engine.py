@@ -113,6 +113,21 @@ def test_lamp_reveals_foyer_inscriptions() -> None:
     assert "echoes" in use_lamp.lower()
 
 
+def test_lamp_reveals_water_echoes_in_cavern() -> None:
+    engine = GameEngine(seed=5)
+
+    engine.step("take lamp")
+    engine.step("north")
+    engine.step("take key")
+    engine.step("east")
+    engine.step("use lamp")
+    engine.step("take coin")
+
+    use_lamp, _ = engine.step("use lamp")
+    assert "water" in use_lamp.lower()
+    assert "weight" in use_lamp.lower() or "echoes" in use_lamp.lower()
+
+
 def test_tablet_contains_cryptic_verses() -> None:
     engine = GameEngine(seed=6)
 

@@ -83,8 +83,7 @@ class GameEngine:
 
         if self.state.location == "treasury" and self.state.flags.get("idol_placed"):
             lines.append("The idol rests upon the pedestal, and a hidden alcove gleams with ancient verses.")
-
-        if room.items:
+        elif room.items:
             lines.append("You see: " + ", ".join(sorted(room.items)) + ".")
         else:
             lines.append("You see nothing useful.")
@@ -152,11 +151,19 @@ class GameEngine:
         if item not in self.state.inventory:
             return f"You do not have {item}."
 
-        if item == "lamp" and self.state.location == "cavern" and not self.state.flags.get("coin_revealed"):
-            self.state.flags["coin_revealed"] = True
-            if "coin" not in self.current_room().items:
-                self.current_room().items.append("coin")
-            return "You raise the lamp. A hidden coin glints near a rock."
+        if item == "lamp" and self.state.location == "cavern":
+            if not self.state.flags.get("coin_revealed"):
+                self.state.flags["coin_revealed"] = True
+                if "coin" not in self.current_room().items:
+                    self.current_room().items.append("coin")
+                return "You raise the lamp. A hidden coin glints near a rock."
+            if not self.state.flags.get("cavern_water_seen"):
+                self.state.flags["cavern_water_seen"] = True
+                return (
+                    "You sweep the lamp across the cavern walls. Water traces down from above, "
+                    "thin threads catching the light before vanishing into the darkness. "
+                    "Somewhere above, something holds the weight of ages\u2014and the memory of water."
+                )
 
         if item == "lamp" and self.state.location == "foyer" and not self.state.flags.get("foyer_inscriptions_seen"):
             self.state.flags["foyer_inscriptions_seen"] = True
@@ -190,7 +197,8 @@ class GameEngine:
                 return "The idol already rests upon the pedestal."
             self.state.flags["idol_placed"] = True
             self.state.inventory.remove("idol")
-            self.current_room().items.append("idol")
+            if "idol" in self.current_room().items:
+                self.current_room().items.remove("idol")
             return (
                 "You set the idol upon the pedestal. Ancient mechanisms grind to life. "
                 "A hidden alcove shimmers into existence, inscribed with forgotten verses: "
