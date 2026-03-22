@@ -16,26 +16,38 @@ def build_world() -> dict[str, Room]:
     return {
         "trailhead": Room(
             name="Trailhead",
-            description="You stand before a weathered stone arch. A path leads north.",
+            description=(
+                "You stand beneath a weathered stone arch wrapped in ivy. "
+                "Cold air spills from the ruins to the north, carrying the smell of rain and old dust."
+            ),
             exits={"north": "foyer"},
             items=["lamp"],
         ),
         "foyer": Room(
             name="Foyer",
-            description="A cool chamber with mossy walls. Corridors lead east and south.",
+            description=(
+                "A vaulted antechamber opens around you, its moss-dark walls etched with faded glyphs. "
+                "A narrow passage bends east while daylight lingers weakly to the south."
+            ),
             exits={"south": "trailhead", "east": "cavern"},
             items=["key"],
         ),
         "cavern": Room(
             name="Cavern",
-            description="A dark cavern. You hear slow drips. Paths lead west and north.",
+            description=(
+                "A black-stone cavern swallows the light, each drip echoing like a distant clock. "
+                "A bronze gate seals the northern tunnel while the western passage returns to the foyer."
+            ),
             exits={"west": "foyer", "north": "treasury"},
             items=[],
             locks={"north": "key"},
         ),
         "treasury": Room(
             name="Treasury",
-            description="A hidden vault glitters softly. The only exit is south.",
+            description=(
+                "A hidden vault glitters in low amber light. A carved pedestal with a coin-sized slot "
+                "rests near the center, and the only open passage leads south."
+            ),
             exits={"south": "cavern"},
             items=["idol"],
         ),

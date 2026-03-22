@@ -72,6 +72,15 @@ class GameEngine:
         room = self.current_room()
         lines = [room.name, room.description]
 
+        if self.state.location == "cavern":
+            if self.state.flags.get("cavern_north_unlocked"):
+                lines.append("The bronze gate to the north stands open.")
+            else:
+                lines.append("A locked bronze gate blocks the northern tunnel.")
+
+        if self.state.location == "treasury" and not self.state.flags.get("coin_offered"):
+            lines.append("The pedestal slot looks exactly coin-sized.")
+
         if room.items:
             lines.append("You see: " + ", ".join(sorted(room.items)) + ".")
         else:
@@ -102,8 +111,12 @@ class GameEngine:
             return "You cannot go that way."
 
         required = room.locks.get(direction)
-        if required and required not in self.state.inventory:
-            return f"The way {direction} is locked. You need the {required}."
+        if required:
+            lock_flag = f"unlock:{self.state.location}:{direction}"
+            if not self.state.flags.get(lock_flag):
+                if self.state.location == "cavern" and direction == "north":
+                    return "The bronze gate is locked. Try using the key here."
+                return f"The way {direction} is locked. You need the {required}."
 
         self.state.location = room.exits[direction]
         return self.look()
@@ -141,6 +154,22 @@ class GameEngine:
             if "coin" not in self.current_room().items:
                 self.current_room().items.append("coin")
             return "You raise the lamp. A hidden coin glints near a rock."
+
+        if item == "key" and self.state.location == "cavern":
+            if self.state.flags.get("cavern_north_unlocked"):
+                return "The bronze gate is already unlocked."
+            self.state.flags["cavern_north_unlocked"] = True
+            self.state.flags["unlock:cavern:north"] = True
+            return "You work the key into an old lock. The bronze gate clicks open."
+
+        if item == "coin" and self.state.location == "treasury":
+            if self.state.flags.get("coin_offered"):
+                return "The pedestal has already accepted your coin."
+            self.state.flags["coin_offered"] = True
+            self.state.inventory.remove("coin")
+            if "tablet" not in self.current_room().items:
+                self.current_room().items.append("tablet")
+            return "You place the coin in the pedestal slot. A hidden compartment slides open, revealing a tablet."
 
         return f"You try using the {item}, but nothing happens."
 

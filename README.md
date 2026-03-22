@@ -28,6 +28,12 @@ august-adventure --seed 7
 - `help`
 - `quit`
 
+## Current Puzzle Loop
+
+- Find the `key` in the foyer and `use key` in the cavern to open the north gate.
+- Use the `lamp` in the cavern to reveal a hidden `coin`.
+- In the treasury, `use coin` at the pedestal to reveal a `tablet` reward.
+
 ## Test and Playthrough
 
 Run tests:

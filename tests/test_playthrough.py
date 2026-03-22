@@ -7,9 +7,12 @@ def test_smoke_playthrough_reaches_treasury() -> None:
         "north",
         "take key",
         "east",
+        "use key",
         "use lamp",
         "take coin",
         "north",
+        "use coin",
+        "take tablet",
         "take idol",
         "quit",
     ]
@@ -18,5 +21,6 @@ def test_smoke_playthrough_reaches_treasury() -> None:
     text = "\n".join(result.transcript)
 
     assert "Treasury" in text
+    assert "Taken: tablet." in text
     assert "Taken: idol." in text
     assert result.completed

@@ -12,6 +12,46 @@ def test_locked_exit_requires_key() -> None:
     assert "locked" in output.lower()
 
 
+def test_cavern_gate_requires_using_key_explicitly() -> None:
+    engine = GameEngine(seed=2)
+
+    engine.step("north")
+    engine.step("take key")
+    engine.step("east")
+
+    still_locked, _ = engine.step("north")
+    assert "locked" in still_locked.lower()
+
+    unlocked, _ = engine.step("use key")
+    assert "clicks open" in unlocked.lower()
+
+    moved, _ = engine.step("north")
+    assert "Treasury" in moved
+
+
+def test_coin_unlocks_tablet_reward() -> None:
+    engine = GameEngine(seed=3)
+
+    engine.step("take lamp")
+    engine.step("north")
+    engine.step("take key")
+    engine.step("east")
+    engine.step("use key")
+    engine.step("use lamp")
+    engine.step("take coin")
+    engine.step("north")
+
+    use_coin, _ = engine.step("use coin")
+    assert "revealing a tablet" in use_coin.lower()
+
+    take_tablet, _ = engine.step("take tablet")
+    assert "Taken: tablet." == take_tablet
+
+    inv, _ = engine.step("inventory")
+    assert "coin" not in inv
+    assert "tablet" in inv
+
+
 def test_inventory_take_and_drop() -> None:
     engine = GameEngine(seed=1)
     out_take, _ = engine.step("take lamp")
