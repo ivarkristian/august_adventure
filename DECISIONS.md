@@ -60,3 +60,53 @@ Track triage outcomes for August-originated feedback.
   Status: deferred
   Reason: Earliest review is superseded by later review set (#9/#10).
   Planned milestone: M1 - Core Loop
+
+- Issue: `#20`
+  Status: accepted
+  Reason: Latest consolidated review after core-loop improvements; use as primary input for this cycle.
+  Planned milestone: M1 - Core Loop
+
+- Issue: `#19`
+  Status: accepted
+  Reason: Water-echo motif is a good narrative hook and should be developed into meaningful world flavor.
+  Planned milestone: M2 - Puzzle Depth
+
+- Issue: `#18`
+  Status: accepted
+  Reason: Giving the idol a clearer gameplay purpose strengthens reward structure and long-term goals.
+  Planned milestone: M2 - Puzzle Depth
+
+- Issue: `#17`
+  Status: deferred
+  Reason: Lamp and coin now have a complete primary loop; treat broader lamp utility as future feature work, not a current bug.
+  Planned milestone: M2 - Puzzle Depth
+
+- Issue: `#16`
+  Status: deferred
+  Reason: Superseded by newer consolidated review #20.
+  Planned milestone: M1 - Core Loop
+
+- Issue: `#15`
+  Status: deferred
+  Reason: Duplicates narrative theme request in #19.
+  Planned milestone: M2 - Puzzle Depth
+
+- Issue: `#14`
+  Status: deferred
+  Reason: Duplicates idol-purpose request in #18.
+  Planned milestone: M2 - Puzzle Depth
+
+- Issue: `#13`
+  Status: accepted
+  Reason: Treasury can support richer interaction and a secondary challenge to improve depth.
+  Planned milestone: M2 - Puzzle Depth
+
+- Issue: `#12`
+  Status: deferred
+  Reason: Same concern as #17 from earlier commit; track as future feature exploration.
+  Planned milestone: M2 - Puzzle Depth
+
+- Issue: `#11`
+  Status: deferred
+  Reason: Could not reproduce a deterministic idol-spawn bug; monitor in future runs before treating as engine defect.
+  Planned milestone: M1 - Core Loop

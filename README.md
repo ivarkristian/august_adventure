@@ -62,4 +62,4 @@ python scripts/playthrough_smoke.py
 - Qualitative scoring anchors: `docs/playtest_rubric.md`
 
 August automation keeps historical text artifacts in `history_docs/` on the August host,
-including source-derived maps and playthrough-derived maps for each tested commit.
+including source-derived maps, playthrough-derived maps, role notes, and story-arc notes for each tested commit.

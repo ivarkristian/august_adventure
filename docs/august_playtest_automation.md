@@ -26,6 +26,11 @@ This runbook sets up August (`192.168.0.96`) to monitor and test this repository
    - `current/current_rules.txt`
    - `current/source_map.txt` (from `game/world.py`)
    - `current/playthrough_map.txt` (from exploratory transcripts)
+   - `current/story_arc_notes.txt`
+   - `current/role_notes_qa.txt`
+   - `current/role_notes_narrative.txt`
+   - `current/role_notes_puzzle.txt`
+   - `current/role_notes_agency.txt`
    - `current/latest_playtest_brief.txt`
    - snapshots in `history_docs/snapshots/<timestamp>_<commit>/`
 10. Pin the latest playtest brief in Discord.
@@ -114,3 +119,4 @@ AUGUST_FORCE=1 systemctl --user start august-playtest.service
 - `AUGUST_MAX_BUGS` and `AUGUST_MAX_FEATURES` control per-run issue caps.
 - Historical docs are always refreshed for each tested commit and snapshotted for later reference.
 - If report channel env is set, summaries are posted to that channel instead of DM.
+- Consultant output includes additive narrative/puzzle suggestions and overarching story-arc assessment.

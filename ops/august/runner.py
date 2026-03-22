@@ -339,6 +339,8 @@ def build_latest_brief_text(
     score = float(review.get("overall_score", 0.0))
     strengths = review.get("top_strengths", [])
     improvements = review.get("top_improvements", [])
+    narrative_additions = review.get("narrative_additions", [])
+    puzzle_additions = review.get("puzzle_additions", [])
 
     dim_name = {dim_id: label for dim_id, label in DIMENSIONS}
     score_lines = []
@@ -348,6 +350,8 @@ def build_latest_brief_text(
 
     strength_lines = [f"- {clean_line(str(x), 140)}" for x in strengths[:3]] if strengths else ["- None"]
     improvement_lines = [f"- {clean_line(str(x), 140)}" for x in improvements[:3]] if improvements else ["- None"]
+    narrative_lines = [f"- {clean_line(str(x), 160)}" for x in narrative_additions[:5]] if narrative_additions else ["- None"]
+    puzzle_lines = [f"- {clean_line(str(x), 160)}" for x in puzzle_additions[:5]] if puzzle_additions else ["- None"]
 
     lines = [
         "August Adventure - Latest Playtest Brief",
@@ -370,11 +374,46 @@ def build_latest_brief_text(
         "Player agency assessment:",
         clean_line(str(review.get("agency_assessment", "")), 500),
         "",
+        "Story arc assessment:",
+        clean_line(str(review.get("story_arc_assessment", "")), 500),
+        "",
         "Top strengths:",
         *strength_lines,
         "Top improvements:",
         *improvement_lines,
+        "",
+        "Narrative additions suggested:",
+        *narrative_lines,
+        "Puzzle additions suggested:",
+        *puzzle_lines,
     ]
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def build_role_notes_text(title: str, notes: list[str]) -> str:
+    lines = [title, ""]
+    if notes:
+        lines.extend(f"- {clean_line(str(note), 260)}" for note in notes)
+    else:
+        lines.append("- No notes recorded in this run.")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def build_story_arc_notes_text(review: dict[str, Any]) -> str:
+    lines = [
+        "Story Arc Notes",
+        "",
+        clean_line(str(review.get("story_arc_assessment", "No story-arc assessment recorded.")), 2000),
+        "",
+        "Narrative additions:",
+    ]
+
+    narrative_additions = review.get("narrative_additions", [])
+    if isinstance(narrative_additions, list) and narrative_additions:
+        lines.extend(f"- {clean_line(str(item), 260)}" for item in narrative_additions[:8])
+    else:
+        lines.append("- None")
 
     return "\n".join(lines).rstrip() + "\n"
 
@@ -407,11 +446,22 @@ def generate_history_docs(
     snapshot_dir = snapshots_root / snapshot_id
     snapshot_dir.mkdir(parents=True, exist_ok=True)
 
+    role_notes = review.get("role_notes", {}) if isinstance(review.get("role_notes"), dict) else {}
+    qa_notes = role_notes.get("qa", []) if isinstance(role_notes.get("qa"), list) else []
+    narrative_notes = role_notes.get("narrative", []) if isinstance(role_notes.get("narrative"), list) else []
+    puzzle_notes = role_notes.get("puzzle", []) if isinstance(role_notes.get("puzzle"), list) else []
+    agency_notes = role_notes.get("agency", []) if isinstance(role_notes.get("agency"), list) else []
+
     docs: dict[str, str] = {
         "game_intro.txt": build_intro_text(commit_sha, review),
         "current_rules.txt": build_rules_text(world, test_results["smoke"].out),
         "source_map.txt": build_source_map_text(world),
         "playthrough_map.txt": build_playthrough_map_text(exploratory, world),
+        "story_arc_notes.txt": build_story_arc_notes_text(review),
+        "role_notes_qa.txt": build_role_notes_text("Role Notes - QA Bug Hunter", qa_notes),
+        "role_notes_narrative.txt": build_role_notes_text("Role Notes - Narrative Designer", narrative_notes),
+        "role_notes_puzzle.txt": build_role_notes_text("Role Notes - Puzzle Architect", puzzle_notes),
+        "role_notes_agency.txt": build_role_notes_text("Role Notes - Player Agency Advocate", agency_notes),
     }
     docs["latest_playtest_brief.txt"] = build_latest_brief_text(repo, commit_sha, review, test_results, snapshot_id)
 
@@ -540,6 +590,21 @@ def normalize_suggestions(raw: dict[str, Any], max_bugs: int, max_features: int)
     if not isinstance(features_raw, list):
         features_raw = []
 
+    def clean_list(values: Any, limit_items: int, limit_chars: int = 220) -> list[str]:
+        if not isinstance(values, list):
+            return []
+        return [clean_line(str(x), limit_chars) for x in values[:limit_items] if clean_line(str(x), limit_chars)]
+
+    role_notes_raw = review.get("role_notes", {})
+    if not isinstance(role_notes_raw, dict):
+        role_notes_raw = {}
+    role_notes = {
+        "qa": clean_list(role_notes_raw.get("qa", []), 8, 260),
+        "narrative": clean_list(role_notes_raw.get("narrative", []), 8, 260),
+        "puzzle": clean_list(role_notes_raw.get("puzzle", []), 8, 260),
+        "agency": clean_list(role_notes_raw.get("agency", []), 8, 260),
+    }
+
     bugs: list[dict[str, Any]] = []
     for bug in bugs_raw:
         if not isinstance(bug, dict):
@@ -580,12 +645,16 @@ def normalize_suggestions(raw: dict[str, Any], max_bugs: int, max_features: int)
             "location_assessment": clean_line(str(review.get("location_assessment", "")), 1200),
             "quests_challenges_assessment": clean_line(str(review.get("quests_challenges_assessment", "")), 1200),
             "agency_assessment": clean_line(str(review.get("agency_assessment", "")), 1200),
+            "story_arc_assessment": clean_line(str(review.get("story_arc_assessment", "")), 1200),
+            "narrative_additions": clean_list(review.get("narrative_additions", []), 6, 260),
+            "puzzle_additions": clean_list(review.get("puzzle_additions", []), 6, 260),
             "top_strengths": [clean_line(str(x), 220) for x in review.get("top_strengths", [])[:3]]
             if isinstance(review.get("top_strengths"), list)
             else [],
             "top_improvements": [clean_line(str(x), 220) for x in review.get("top_improvements", [])[:3]]
             if isinstance(review.get("top_improvements"), list)
             else [],
+            "role_notes": role_notes,
         },
         "bugs": bugs,
         "features": features,
@@ -648,8 +717,17 @@ Return STRICT JSON only with this schema:
     "location_assessment":"string",
     "quests_challenges_assessment":"string",
     "agency_assessment":"string",
+    "story_arc_assessment":"string",
+    "narrative_additions":["string"],
+    "puzzle_additions":["string"],
     "top_strengths":["string"],
-    "top_improvements":["string"]
+    "top_improvements":["string"],
+    "role_notes": {{
+      "qa":["string"],
+      "narrative":["string"],
+      "puzzle":["string"],
+      "agency":["string"]
+    }}
   }},
   "bugs": [{{"title":"string","summary":"string","repro_steps":["string"],"severity":"low|medium|high"}}],
   "features": [{{"title":"string","player_value":"string","proposal":"string"}}]
@@ -661,6 +739,9 @@ Rules:
 - Base scores on rubric anchors, do not invent a custom scale.
 - Keep bug and feature titles concise.
 - Ensure qualitative sections are specific and evidence-based.
+- Propose additive narrative and puzzle ideas (not critique only).
+- Narrative role must include an overarching story-arc assessment after location-level notes.
+- Role notes should be concise and actionable so they can be persisted as text files.
 """.strip()
     return prompt
 
@@ -689,6 +770,12 @@ def ask_august_consultant(
         if not isinstance(review, dict):
             return False
         if str(review.get("overall_thoughts", "")).strip():
+            return True
+        if str(review.get("story_arc_assessment", "")).strip():
+            return True
+        if isinstance(review.get("narrative_additions"), list) and review.get("narrative_additions"):
+            return True
+        if isinstance(review.get("puzzle_additions"), list) and review.get("puzzle_additions"):
             return True
         if isinstance(review.get("top_strengths"), list) and review.get("top_strengths"):
             return True
@@ -736,8 +823,17 @@ Schema:
     "location_assessment":"string",
     "quests_challenges_assessment":"string",
     "agency_assessment":"string",
+    "story_arc_assessment":"string",
+    "narrative_additions":["string"],
+    "puzzle_additions":["string"],
     "top_strengths":["string"],
-    "top_improvements":["string"]
+    "top_improvements":["string"],
+    "role_notes": {{
+      "qa":["string"],
+      "narrative":["string"],
+      "puzzle":["string"],
+      "agency":["string"]
+    }}
   }},
   "bugs": [{{"title":"string","summary":"string","repro_steps":["string"],"severity":"low|medium|high"}}],
   "features": [{{"title":"string","player_value":"string","proposal":"string"}}]
@@ -746,6 +842,8 @@ Schema:
 Limits:
 - max {max_bugs} bugs
 - max {max_features} features
+- include at least 2 narrative_additions and 2 puzzle_additions when possible
+- include story_arc_assessment and role_notes
 """.strip()
     attempts.append(concise_prompt)
 
@@ -1064,6 +1162,8 @@ def build_overall_review_issue(
     score_table = format_score_table(scores)
     strengths = "\n".join(f"- {x}" for x in review.get("top_strengths", [])) or "- None"
     improvements = "\n".join(f"- {x}" for x in review.get("top_improvements", [])) or "- None"
+    narrative_additions = "\n".join(f"- {x}" for x in review.get("narrative_additions", [])) or "- None"
+    puzzle_additions = "\n".join(f"- {x}" for x in review.get("puzzle_additions", [])) or "- None"
 
     body = (
         f"Automated August qualitative review for commit `{commit_sha}`.\n\n"
@@ -1073,8 +1173,11 @@ def build_overall_review_issue(
         f"### Environment and Locations\n{review.get('location_assessment', '')}\n\n"
         f"### Quests and Challenges\n{review.get('quests_challenges_assessment', '')}\n\n"
         f"### Player Agency\n{review.get('agency_assessment', '')}\n\n"
+        f"### Story Arc\n{review.get('story_arc_assessment', '')}\n\n"
         f"### Top Strengths\n{strengths}\n\n"
         f"### Top Improvements\n{improvements}\n\n"
+        f"### Narrative Additions Suggested\n{narrative_additions}\n\n"
+        f"### Puzzle Additions Suggested\n{puzzle_additions}\n\n"
         "### Test Context\n"
         f"- pytest exit: {test_results['pytest'].code}\n"
         f"- smoke exit: {test_results['smoke'].code}\n"
@@ -1136,9 +1239,13 @@ def format_summary(
 
     strengths = review.get("top_strengths", [])
     improvements = review.get("top_improvements", [])
+    narrative_additions = review.get("narrative_additions", [])
+    puzzle_additions = review.get("puzzle_additions", [])
 
     strength_lines = [f"- {clean_line(str(x), 120)}" for x in strengths[:3]] if strengths else ["- None"]
     improvement_lines = [f"- {clean_line(str(x), 120)}" for x in improvements[:3]] if improvements else ["- None"]
+    narrative_lines = [f"- {clean_line(str(x), 120)}" for x in narrative_additions[:3]] if narrative_additions else ["- None"]
+    puzzle_lines = [f"- {clean_line(str(x), 120)}" for x in puzzle_additions[:3]] if puzzle_additions else ["- None"]
 
     lines = [
         "August playtest report",
@@ -1154,10 +1261,15 @@ def format_summary(
         f"- Environment and locations: {clean_line(str(review.get('location_assessment', '')), 200)}",
         f"- Quests and challenges: {clean_line(str(review.get('quests_challenges_assessment', '')), 200)}",
         f"- Player agency: {clean_line(str(review.get('agency_assessment', '')), 200)}",
+        f"- Story arc: {clean_line(str(review.get('story_arc_assessment', '')), 200)}",
         "Top strengths:",
         *strength_lines,
         "Top improvements:",
         *improvement_lines,
+        "Creative additions (narrative):",
+        *narrative_lines,
+        "Creative additions (puzzle):",
+        *puzzle_lines,
         f"Issues opened: {len(opened_urls)}",
         f"Issues skipped (duplicate): {skipped_count}",
     ]
