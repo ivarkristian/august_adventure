@@ -21,6 +21,14 @@ This runbook sets up August (`192.168.0.96`) to monitor and test this repository
    - up to 3 feature issues,
    - 1 qualitative overall review issue.
 8. DM a technical + qualitative summary to the owner via Discord.
+9. Write and maintain historical reference docs under `history_docs/`:
+   - `current/game_intro.txt`
+   - `current/current_rules.txt`
+   - `current/source_map.txt` (from `game/world.py`)
+   - `current/playthrough_map.txt` (from exploratory transcripts)
+   - `current/latest_playtest_brief.txt`
+   - snapshots in `history_docs/snapshots/<timestamp>_<commit>/`
+10. Pin the latest playtest brief in Discord.
 
 ## Required Credentials
 
@@ -66,6 +74,12 @@ chmod 600 ~/.config/august-github-app.pem
 chmod 600 ~/.config/august-playtest.env
 ```
 
+Optional Discord pin target:
+
+- `AUGUST_DISCORD_PIN_CHANNEL_ID=<channel_id>`
+
+If not set, runner pins the latest brief in the owner DM channel.
+
 ## Operations
 
 Run once manually:
@@ -92,3 +106,4 @@ AUGUST_FORCE=1 systemctl --user start august-playtest.service
 - Overall score is the arithmetic average of all rubric dimensions.
 - If GitHub auth is missing, runner still executes tests and sends DM summary in dry-run mode.
 - `AUGUST_MAX_BUGS` and `AUGUST_MAX_FEATURES` control per-run issue caps.
+- Historical docs are always refreshed for each tested commit and snapshotted for later reference.

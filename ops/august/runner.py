@@ -5,6 +5,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -163,6 +164,283 @@ def run_exploratory_scenarios(repo_dir: Path, python_bin: Path) -> dict[str, str
         else:
             results[name] = result.out
     return results
+
+
+def load_world_from_source(repo_dir: Path) -> dict[str, Any]:
+    if str(repo_dir) not in sys.path:
+        sys.path.insert(0, str(repo_dir))
+    from game.world import build_world  # type: ignore
+
+    return build_world()
+
+
+def build_source_map_text(world: dict[str, Any]) -> str:
+    lines = [
+        "August Adventure Source Map",
+        "(derived from game/world.py)",
+        "",
+    ]
+
+    for room_key in world:
+        room = world[room_key]
+        room_name = getattr(room, "name", room_key)
+        lines.append(f"Room: {room_name} [{room_key}]")
+
+        exits = getattr(room, "exits", {})
+        if exits:
+            lines.append("  Exits:")
+            for direction, dest in exits.items():
+                dest_name = getattr(world.get(dest, None), "name", dest)
+                lines.append(f"    - {direction} -> {dest_name} [{dest}]")
+        else:
+            lines.append("  Exits: none")
+
+        locks = getattr(room, "locks", {})
+        if locks:
+            lines.append("  Locks:")
+            for direction, item in locks.items():
+                lines.append(f"    - {direction} requires {item}")
+
+        items = getattr(room, "items", [])
+        if items:
+            lines.append("  Items:")
+            for item in items:
+                lines.append(f"    - {item}")
+        else:
+            lines.append("  Items: none")
+
+        lines.append("")
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def extract_room_sequence(transcript: str, room_names: set[str]) -> list[str]:
+    sequence: list[str] = []
+    for raw in transcript.splitlines():
+        line = raw.strip()
+        if line in room_names:
+            if not sequence or sequence[-1] != line:
+                sequence.append(line)
+    return sequence
+
+
+def build_playthrough_map_text(exploratory: dict[str, str], world: dict[str, Any]) -> str:
+    room_names = {getattr(room, "name", key) for key, room in world.items()}
+    visit_counts: dict[str, int] = {name: 0 for name in room_names}
+    edge_counts: dict[tuple[str, str], int] = {}
+    scenario_sequences: dict[str, list[str]] = {}
+
+    for scenario, transcript in exploratory.items():
+        seq = extract_room_sequence(transcript, room_names)
+        scenario_sequences[scenario] = seq
+        for room in seq:
+            visit_counts[room] = visit_counts.get(room, 0) + 1
+        for i in range(len(seq) - 1):
+            edge = (seq[i], seq[i + 1])
+            edge_counts[edge] = edge_counts.get(edge, 0) + 1
+
+    lines = [
+        "August Adventure Playthrough Map",
+        "(derived from exploratory run transcripts)",
+        "",
+        "Scenario room sequences:",
+    ]
+    for scenario, seq in scenario_sequences.items():
+        seq_text = " -> ".join(seq) if seq else "(no recognized rooms)"
+        lines.append(f"- {scenario}: {seq_text}")
+
+    lines.extend(["", "Observed room visit counts:"])
+    for room in sorted(visit_counts):
+        lines.append(f"- {room}: {visit_counts[room]}")
+
+    lines.extend(["", "Observed transitions:"])
+    if edge_counts:
+        for (src, dst), count in sorted(edge_counts.items(), key=lambda item: (-item[1], item[0][0], item[0][1])):
+            lines.append(f"- {src} -> {dst} (seen {count}x)")
+    else:
+        lines.append("- none")
+
+    unseen = [room for room, count in sorted(visit_counts.items()) if count == 0]
+    lines.extend(["", "Unseen rooms in exploratory runs:"])
+    if unseen:
+        for room in unseen:
+            lines.append(f"- {room}")
+    else:
+        lines.append("- none")
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def build_intro_text(commit_sha: str, review: dict[str, Any]) -> str:
+    strengths = review.get("top_strengths", [])
+    strength_lines = "\n".join(f"- {x}" for x in strengths[:3]) if strengths else "- (none reported this run)"
+    return (
+        "August Adventure - Introduction\n"
+        "\n"
+        "August Adventure is a classic-style text adventure focused on exploration, puzzle-solving, "
+        "and coherent world interaction.\n"
+        "\n"
+        f"Current analyzed commit: {commit_sha[:12]}\n"
+        f"Latest overall score (1-5): {review.get('overall_score', 0.0)}\n"
+        "\n"
+        "Current highlights:\n"
+        f"{strength_lines}\n"
+    )
+
+
+def build_rules_text(world: dict[str, Any], smoke_output: str) -> str:
+    lines = [
+        "August Adventure - Current Rules",
+        "",
+        "Primary player actions:",
+        "- look / l",
+        "- go <north|south|east|west> (or type direction directly)",
+        "- take <item>",
+        "- drop <item>",
+        "- use <item>",
+        "- inventory / i",
+        "- save [path]",
+        "- load [path]",
+        "- help",
+        "- quit",
+        "",
+        "Lock and key rules from source:",
+    ]
+
+    found_lock = False
+    for room_key, room in world.items():
+        locks = getattr(room, "locks", {})
+        if not locks:
+            continue
+        found_lock = True
+        room_name = getattr(room, "name", room_key)
+        for direction, item in locks.items():
+            lines.append(f"- {room_name} [{room_key}] direction {direction} requires {item}")
+    if not found_lock:
+        lines.append("- none")
+
+    lines.extend(["", "Observed mechanics from smoke run:"])
+    if "hidden coin" in smoke_output.lower():
+        lines.append("- Using lamp in cavern can reveal a hidden coin.")
+    if "Taken: idol." in smoke_output:
+        lines.append("- Treasury currently contains an idol that can be collected.")
+    lines.append("- Save/load commands are available for persistence.")
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def build_latest_brief_text(
+    repo: str,
+    commit_sha: str,
+    review: dict[str, Any],
+    test_results: dict[str, CmdResult],
+    snapshot_id: str,
+) -> str:
+    score = float(review.get("overall_score", 0.0))
+    strengths = review.get("top_strengths", [])
+    improvements = review.get("top_improvements", [])
+
+    dim_name = {dim_id: label for dim_id, label in DIMENSIONS}
+    score_lines = []
+    for item in review.get("dimension_scores", []):
+        label = dim_name.get(str(item.get("dimension", "")), str(item.get("dimension", "")))
+        score_lines.append(f"- {label}: {item.get('score', 3)}/5 ({clean_line(str(item.get('why', '')), 80)})")
+
+    strength_lines = [f"- {clean_line(str(x), 140)}" for x in strengths[:3]] if strengths else ["- None"]
+    improvement_lines = [f"- {clean_line(str(x), 140)}" for x in improvements[:3]] if improvements else ["- None"]
+
+    lines = [
+        "August Adventure - Latest Playtest Brief",
+        f"Repo: {repo}",
+        f"Commit: {commit_sha[:12]}",
+        f"Snapshot: {snapshot_id}",
+        f"Overall score: {score:.2f}/5",
+        f"Pytest: {'PASS' if test_results['pytest'].code == 0 else 'FAIL'}",
+        f"Smoke: {'PASS' if test_results['smoke'].code == 0 else 'FAIL'}",
+        "",
+        "Dimension scores:",
+        *score_lines,
+        "",
+        "Environment/location assessment:",
+        clean_line(str(review.get("location_assessment", "")), 500),
+        "",
+        "Quests/challenges assessment:",
+        clean_line(str(review.get("quests_challenges_assessment", "")), 500),
+        "",
+        "Player agency assessment:",
+        clean_line(str(review.get("agency_assessment", "")), 500),
+        "",
+        "Top strengths:",
+        *strength_lines,
+        "Top improvements:",
+        *improvement_lines,
+    ]
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def truncate_for_discord(text: str, limit: int = 1800) -> str:
+    clean = text.strip()
+    if len(clean) <= limit:
+        return clean
+    return clean[: limit - 20].rstrip() + "\n... (truncated)"
+
+
+def generate_history_docs(
+    repo: str,
+    repo_dir: Path,
+    commit_sha: str,
+    review: dict[str, Any],
+    test_results: dict[str, CmdResult],
+    exploratory: dict[str, str],
+) -> dict[str, str]:
+    world = load_world_from_source(repo_dir)
+
+    history_root = repo_dir / "history_docs"
+    current_dir = history_root / "current"
+    snapshots_root = history_root / "snapshots"
+    current_dir.mkdir(parents=True, exist_ok=True)
+    snapshots_root.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    snapshot_id = f"{timestamp}_{commit_sha[:12]}"
+    snapshot_dir = snapshots_root / snapshot_id
+    snapshot_dir.mkdir(parents=True, exist_ok=True)
+
+    docs: dict[str, str] = {
+        "game_intro.txt": build_intro_text(commit_sha, review),
+        "current_rules.txt": build_rules_text(world, test_results["smoke"].out),
+        "source_map.txt": build_source_map_text(world),
+        "playthrough_map.txt": build_playthrough_map_text(exploratory, world),
+    }
+    docs["latest_playtest_brief.txt"] = build_latest_brief_text(repo, commit_sha, review, test_results, snapshot_id)
+
+    for name, content in docs.items():
+        (current_dir / name).write_text(content, encoding="utf-8")
+        (snapshot_dir / name).write_text(content, encoding="utf-8")
+
+    index_path = history_root / "INDEX.txt"
+    line = (
+        f"{timestamp} commit={commit_sha[:12]} score={review.get('overall_score', 0.0)} "
+        f"snapshot={snapshot_id} pytest={test_results['pytest'].code} smoke={test_results['smoke'].code}\n"
+    )
+    with index_path.open("a", encoding="utf-8") as f:
+        f.write(line)
+
+    docs_path = str(current_dir)
+    pinned_message = (
+        docs["latest_playtest_brief.txt"]
+        + "\n"
+        + f"Host docs path: {docs_path}\n"
+        + f"Snapshot path: {snapshot_dir}\n"
+    )
+    return {
+        "snapshot_id": snapshot_id,
+        "docs_path": docs_path,
+        "snapshot_path": str(snapshot_dir),
+        "latest_brief": docs["latest_playtest_brief.txt"],
+        "pinned_message": truncate_for_discord(pinned_message, limit=1850),
+    }
 
 
 def load_text_file(path: Path) -> str:
@@ -643,33 +921,66 @@ def load_picoclaw_discord() -> tuple[str, str]:
     return token, owner
 
 
-def send_discord_dm(token: str, owner_id: str, content: str) -> None:
+def discord_request(token: str, method: str, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
     headers = {
         "Authorization": f"Bot {token}",
         "Content-Type": "application/json",
         "User-Agent": "august-playtest-bot",
     }
-    dm_req = Request(
-        url="https://discord.com/api/v10/users/@me/channels",
-        method="POST",
-        data=json.dumps({"recipient_id": owner_id}).encode("utf-8"),
-        headers=headers,
-    )
-    with urlopen(dm_req, timeout=30) as resp:
+    data = None if payload is None else json.dumps(payload).encode("utf-8")
+    req = Request(url=f"https://discord.com/api/v10{path}", method=method, data=data, headers=headers)
+    with urlopen(req, timeout=30) as resp:
         body = resp.read().decode("utf-8")
-    dm_data = json.loads(body)
-    channel_id = dm_data.get("id")
-    if not isinstance(channel_id, str):
-        return
+    return json.loads(body) if body else {}
 
-    msg_req = Request(
-        url=f"https://discord.com/api/v10/channels/{channel_id}/messages",
-        method="POST",
-        data=json.dumps({"content": content[:1900]}).encode("utf-8"),
+
+def get_discord_dm_channel(token: str, owner_id: str) -> str:
+    data = discord_request(token, "POST", "/users/@me/channels", {"recipient_id": owner_id})
+    channel_id = data.get("id")
+    return channel_id if isinstance(channel_id, str) else ""
+
+
+def send_discord_message(token: str, channel_id: str, content: str) -> str:
+    data = discord_request(token, "POST", f"/channels/{channel_id}/messages", {"content": content[:1900]})
+    message_id = data.get("id")
+    return message_id if isinstance(message_id, str) else ""
+
+
+def pin_discord_message(token: str, channel_id: str, message_id: str) -> None:
+    headers = {
+        "Authorization": f"Bot {token}",
+        "User-Agent": "august-playtest-bot",
+    }
+    req = Request(
+        url=f"https://discord.com/api/v10/channels/{channel_id}/pins/{message_id}",
+        method="PUT",
+        data=b"",
         headers=headers,
     )
-    with urlopen(msg_req, timeout=30):
+    with urlopen(req, timeout=30):
         pass
+
+
+def unpin_discord_message(token: str, channel_id: str, message_id: str) -> None:
+    headers = {
+        "Authorization": f"Bot {token}",
+        "User-Agent": "august-playtest-bot",
+    }
+    req = Request(
+        url=f"https://discord.com/api/v10/channels/{channel_id}/pins/{message_id}",
+        method="DELETE",
+        headers=headers,
+    )
+    with urlopen(req, timeout=30):
+        pass
+
+
+def send_discord_dm(token: str, owner_id: str, content: str) -> tuple[str, str]:
+    channel_id = get_discord_dm_channel(token, owner_id)
+    if not channel_id:
+        return "", ""
+    message_id = send_discord_message(token, channel_id, content)
+    return channel_id, message_id
 
 
 def load_state(path: Path) -> dict[str, Any]:
@@ -881,12 +1192,27 @@ def main() -> int:
                 opened_urls.append(url)
             open_titles.add(issue.title)
 
+    docs_meta = generate_history_docs(
+        repo=repo,
+        repo_dir=repo_dir,
+        commit_sha=sha,
+        review=review_pack["overall_review"],
+        test_results=test_results,
+        exploratory=exploratory,
+    )
+
     prev_score = None
     if isinstance(state.get("last_overall_score"), (int, float)):
         prev_score = float(state["last_overall_score"])
 
     mode = gh.mode if not github_errors else f"{gh.mode}-with-errors"
     summary = format_summary(repo, sha, mode, test_results, review_pack["overall_review"], opened_urls, skipped_count, prev_score)
+    summary += (
+        "\nHistory docs:\n"
+        f"- current: {docs_meta['docs_path']}\n"
+        f"- snapshot: {docs_meta['snapshot_path']}\n"
+        f"- snapshot_id: {docs_meta['snapshot_id']}"
+    )
     if github_errors:
         summary += "\nGitHub errors:\n- " + "\n- ".join(clean_line(x, 240) for x in github_errors[:5])
     print(summary)
@@ -898,16 +1224,39 @@ def main() -> int:
             "last_pytest_exit": test_results["pytest"].code,
             "last_smoke_exit": test_results["smoke"].code,
             "last_overall_score": float(review_pack["overall_review"].get("overall_score", 0.0)),
+            "last_snapshot_id": docs_meta["snapshot_id"],
+            "last_docs_path": docs_meta["docs_path"],
+            "last_snapshot_path": docs_meta["snapshot_path"],
         }
     )
-    save_state(state_path, state)
 
     discord_token, owner_id = load_picoclaw_discord()
     if discord_token and owner_id:
+        dm_channel_id = ""
         try:
-            send_discord_dm(discord_token, owner_id, summary)
+            dm_channel_id, _summary_message_id = send_discord_dm(discord_token, owner_id, summary)
         except Exception:  # noqa: BLE001
             pass
+
+        pin_channel_id = os.getenv("AUGUST_DISCORD_PIN_CHANNEL_ID", "").strip() or dm_channel_id
+        if pin_channel_id:
+            try:
+                pin_message_id = send_discord_message(discord_token, pin_channel_id, docs_meta["pinned_message"])
+                if pin_message_id:
+                    prev_pin_id = str(state.get("last_pinned_message_id", ""))
+                    prev_pin_channel = str(state.get("last_pinned_channel_id", ""))
+                    if prev_pin_id and prev_pin_channel == pin_channel_id and prev_pin_id != pin_message_id:
+                        try:
+                            unpin_discord_message(discord_token, pin_channel_id, prev_pin_id)
+                        except Exception:  # noqa: BLE001
+                            pass
+                    pin_discord_message(discord_token, pin_channel_id, pin_message_id)
+                    state["last_pinned_message_id"] = pin_message_id
+                    state["last_pinned_channel_id"] = pin_channel_id
+            except Exception:  # noqa: BLE001
+                pass
+
+    save_state(state_path, state)
 
     return 0
 
