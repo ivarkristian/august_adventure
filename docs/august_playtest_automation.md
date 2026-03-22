@@ -78,6 +78,12 @@ Optional Discord pin target:
 
 - `AUGUST_DISCORD_PIN_CHANNEL_ID=<channel_id>`
 
+Playtest report destination (recommended for channel-only reporting):
+
+- `AUGUST_DISCORD_REPORT_CHANNEL_ID=<channel_id>`
+  or
+- `AUGUST_DISCORD_REPORT_CHANNEL_NAME=august-adventure`
+
 If not set, runner pins the latest brief in the owner DM channel.
 
 ## Operations
@@ -107,3 +113,4 @@ AUGUST_FORCE=1 systemctl --user start august-playtest.service
 - If GitHub auth is missing, runner still executes tests and sends DM summary in dry-run mode.
 - `AUGUST_MAX_BUGS` and `AUGUST_MAX_FEATURES` control per-run issue caps.
 - Historical docs are always refreshed for each tested commit and snapshotted for later reference.
+- If report channel env is set, summaries are posted to that channel instead of DM.

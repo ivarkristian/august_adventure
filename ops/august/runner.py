@@ -940,6 +940,51 @@ def get_discord_dm_channel(token: str, owner_id: str) -> str:
     return channel_id if isinstance(channel_id, str) else ""
 
 
+def find_discord_channel_by_name(token: str, channel_name: str) -> str:
+    target = channel_name.strip().lstrip("#").lower()
+    if not target:
+        return ""
+
+    guilds_data = discord_request(token, "GET", "/users/@me/guilds")
+    if not isinstance(guilds_data, list):
+        return ""
+
+    for guild in guilds_data:
+        if not isinstance(guild, dict):
+            continue
+        guild_id = guild.get("id")
+        if not isinstance(guild_id, str):
+            continue
+        channels_data = discord_request(token, "GET", f"/guilds/{guild_id}/channels")
+        if not isinstance(channels_data, list):
+            continue
+        for ch in channels_data:
+            if not isinstance(ch, dict):
+                continue
+            ch_name = str(ch.get("name", "")).strip().lower()
+            ch_type = ch.get("type")
+            ch_id = ch.get("id")
+            if ch_name == target and isinstance(ch_id, str) and ch_type in {0, 5}:  # text / announcement
+                return ch_id
+    return ""
+
+
+def resolve_report_channel(token: str, owner_id: str) -> str:
+    explicit_id = os.getenv("AUGUST_DISCORD_REPORT_CHANNEL_ID", "").strip()
+    if explicit_id:
+        return explicit_id
+
+    explicit_name = os.getenv("AUGUST_DISCORD_REPORT_CHANNEL_NAME", "").strip()
+    if explicit_name:
+        found = find_discord_channel_by_name(token, explicit_name)
+        if found:
+            return found
+
+    if owner_id:
+        return get_discord_dm_channel(token, owner_id)
+    return ""
+
+
 def send_discord_message(token: str, channel_id: str, content: str) -> str:
     data = discord_request(token, "POST", f"/channels/{channel_id}/messages", {"content": content[:1900]})
     message_id = data.get("id")
@@ -1231,14 +1276,19 @@ def main() -> int:
     )
 
     discord_token, owner_id = load_picoclaw_discord()
-    if discord_token and owner_id:
-        dm_channel_id = ""
+    if discord_token:
+        report_channel_id = ""
         try:
-            dm_channel_id, _summary_message_id = send_discord_dm(discord_token, owner_id, summary)
+            report_channel_id = resolve_report_channel(discord_token, owner_id)
+            if report_channel_id:
+                summary_message_id = send_discord_message(discord_token, report_channel_id, summary)
+                if summary_message_id:
+                    state["last_summary_message_id"] = summary_message_id
+                    state["last_report_channel_id"] = report_channel_id
         except Exception:  # noqa: BLE001
             pass
 
-        pin_channel_id = os.getenv("AUGUST_DISCORD_PIN_CHANNEL_ID", "").strip() or dm_channel_id
+        pin_channel_id = os.getenv("AUGUST_DISCORD_PIN_CHANNEL_ID", "").strip() or report_channel_id
         if pin_channel_id:
             try:
                 pin_message_id = send_discord_message(discord_token, pin_channel_id, docs_meta["pinned_message"])
