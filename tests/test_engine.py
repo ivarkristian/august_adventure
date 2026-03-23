@@ -146,3 +146,45 @@ def test_tablet_contains_cryptic_verses() -> None:
     assert "river" in use_tablet.lower()
     assert "echoes" in use_tablet.lower()
     assert "tablet" in use_tablet.lower()
+
+
+def test_listen_reveals_hidden_passage_at_trailhead() -> None:
+    engine = GameEngine(seed=7)
+
+    listen1, _ = engine.step("listen")
+    assert "water" in listen1.lower()
+    assert "east" in listen1.lower()
+    assert "hidden" in listen1.lower()
+
+    look, _ = engine.step("look")
+    assert "east" in look
+
+    east_result, _ = engine.step("east")
+    assert "Hidden Passage" in east_result
+    assert "journal" in east_result.lower()
+
+
+def test_examine_glyphs_after_lamp() -> None:
+    engine = GameEngine(seed=8)
+
+    engine.step("take lamp")
+    engine.step("north")
+    engine.step("use lamp")
+
+    examine, _ = engine.step("examine glyphs")
+    assert "glyph" in examine.lower()
+    assert "lamp" in examine.lower() or "tablet" in examine.lower()
+
+
+def test_hidden_passage_journal() -> None:
+    engine = GameEngine(seed=9)
+
+    engine.step("listen")
+    engine.step("east")
+
+    examine_journal, _ = engine.step("examine journal")
+    assert "journal" in examine_journal.lower()
+    assert "builders" in examine_journal.lower() or "treasure" in examine_journal.lower()
+
+    use_journal, _ = engine.step("use journal")
+    assert "journal" in use_journal.lower() or "builders" in use_journal.lower()

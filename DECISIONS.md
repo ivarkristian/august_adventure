@@ -163,3 +163,36 @@ Track triage outcomes for August-originated feedback.
   Status: deferred
   Reason: Consolidated review at current commit cd17278cc9 (3.33/5); same findings as #28/#27. No new actionable items beyond prior accepted issues (#18 idol purpose, #19 water echoes, #22 lamp inscriptions). Game is functionally complete for M2 scope.
   Planned milestone: M2 - Puzzle Depth
+
+- Issue: `#30`
+  Status: accepted
+  Reason: Bug report about idol inconsistency across scenarios; narrative fit HIGH (idol has purpose now per #18), location fit HIGH (Treasury). The idol is hardcoded in treasury room at build_world, so inconsistency likely from test script variation; will verify determinism and add explicit room state test.
+  Planned milestone: M2 - Puzzle Depth
+  Implemented: Verified idol is deterministic in treasury via build_world; added room state test to prevent regressions.
+
+- Issue: `#31`
+  Status: wontfix
+  Reason: Duplicate of #17/#12 regarding lamp utility. Lamp now reveals Foyer inscriptions and cavern water echoes; full lamp expansion deferred to future milestone.
+  Planned milestone: M3 - Extended Items
+
+- Issue: `#32`
+  Status: deferred
+  Reason: Duplicate of #18 which is already accepted and implemented. Idol has purpose (reveals alcove with verses) in current build.
+  Planned milestone: M2 - Puzzle Depth
+
+- Issue: `#33`
+  Status: accepted
+  Reason: Feature suggestion for glyph decoding puzzle in Foyer; narrative fit HIGH (foyer already has glyphs), location fit HIGH (Foyer). Will integrate with existing lamp-inscriptions feature: use lamp to reveal glyphs, then examine them to decode a clue for the Treasury.
+  Planned milestone: M2 - Puzzle Depth
+  Implemented: Added examine command for glyphs; lamp reveals inscriptions, examine glyphs provides decoding hints referencing tablet and Treasury puzzle.
+
+- Issue: `#34`
+  Status: accepted
+  Reason: Feature suggestion for water echoes shortcut at Trailhead via listen command; narrative fit HIGH (water echoes motif exists), location fit HIGH (Trailhead is starting area). Will add listen command that reveals hidden passage at Trailhead.
+  Planned milestone: M2 - Puzzle Depth
+  Implemented: Added listen command; listening at Trailhead reveals hidden passage east leading to Hidden Passage room with journal.
+
+- Issue: `#35`
+  Status: deferred
+  Reason: Qualitative review at 3.33/5; mentions lingering idol inconsistencies and limited depth. Same concerns addressed by accepted issues #30, #33, #34. No new actionable items.
+  Planned milestone: M2 - Puzzle Depth

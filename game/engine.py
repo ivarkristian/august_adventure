@@ -15,6 +15,8 @@ HELP_TEXT = """Commands:
   take <item>
   drop <item>
   use <item>
+  examine <target>
+  listen
   inventory|i
   save [path]
   load [path]
@@ -62,6 +64,10 @@ class GameEngine:
             return self.load(cmd.target), False
         if cmd.action == "quit":
             return "Farewell, adventurer.", True
+        if cmd.action == "listen":
+            return self.listen(), False
+        if cmd.action == "examine":
+            return self.examine(cmd.target), False
 
         return "I do not understand that command.", False
 
@@ -112,8 +118,16 @@ class GameEngine:
                 lines.append("You see: " + ", ".join(sorted(room.items)) + ".")
             else:
                 lines.append("You see nothing useful.")
+        elif self.state.location == "hidden_passage":
+            lines.append(room.description)
+            if room.items:
+                lines.append("You see: " + ", ".join(sorted(room.items)) + ".")
+            lines.append("Exits: " + ", ".join(sorted(room.exits.keys())) + ".")
+            return "\n".join(lines)
         else:
             lines.append(room.description)
+            if self.state.location == "trailhead" and self.state.flags.get("trailhead_listened"):
+                lines.append("A faint sound of trickling water echoes from the east.")
             if room.items:
                 lines.append("You see: " + ", ".join(sorted(room.items)) + ".")
             else:
@@ -243,7 +257,90 @@ class GameEngine:
                 "There, beneath the weight of ages, the true tablet awaits.'"
             )
 
+        if item == "journal" and self.state.location == "hidden_passage":
+            return (
+                "You open the journal. Most pages are water-damaged, but one entry remains readable: "
+                "'The builders left three symbols as their legacy—water, stone, and sight. "
+                "Together they reveal the path to what was hidden. "
+                "The river's tear opens the way. The stone's memory guides. "
+                "The idol's gaze seals the truth.'"
+            )
+
         return f"You try using the {item}, but nothing happens."
+
+    def listen(self) -> str:
+        if self.state.location == "trailhead":
+            if not self.state.flags.get("trailhead_listened"):
+                self.state.flags["trailhead_listened"] = True
+                if "east" not in self.current_room().exits:
+                    self.current_room().exits["east"] = "hidden_passage"
+                return (
+                    "You stand still and listen. The wind fades. "
+                    "Then—water. A faint echo rises from the east, "
+                    "where no path should be. You hear it clearly now: "
+                    "a secret passage, hidden by the sound of trickling water."
+                )
+            return "The water echoes from the east. The hidden passage awaits."
+
+        if self.state.location == "foyer":
+            return "The foyer is silent save for the faint drip of water somewhere beyond the walls."
+
+        if self.state.location == "cavern":
+            return "Water drips steadily from above, each drop echoing into the darkness."
+
+        if self.state.location == "treasury":
+            return "The treasury is utterly still. Ancient air holds its breath."
+
+        return "You hear nothing unusual."
+
+    def examine(self, target: str) -> str:
+        if not target:
+            return "Examine what?"
+
+        if target in {"glyph", "glyphs", "wall", "walls", "inscription", "inscriptions"}:
+            if self.state.location == "foyer":
+                if self.state.flags.get("foyer_inscriptions_seen"):
+                    return (
+                        "The glyphs shimmer faintly in the lamplight: "
+                        "water-drop symbols arranged in a repeating pattern. "
+                        "They seem to encode something—a sequence of three symbols "
+                        "repeated near the eastern wall. Perhaps the answer lies in the tablet."
+                    )
+                return "The glyphs are too faded to read without proper light."
+
+        if target in {"pedestal", "altar"}:
+            if self.state.location == "treasury":
+                if self.state.flags.get("idol_placed"):
+                    return "The idol rests upon the pedestal, eyes gazing upward. The hidden alcove glows softly."
+                return "The carved pedestal has a coin-sized slot and empty arms, as if waiting for an offering."
+
+        if target in {"tablet"}:
+            if "tablet" in self.state.inventory:
+                return (
+                    "You study the weathered tablet. The strange symbols resolve into words: "
+                    "'The river remembers what the stone forgets. Seek the echoes where the water weeps. "
+                    "There, beneath the weight of ages, the true tablet awaits.'"
+                )
+            if "tablet" in self.current_room().items:
+                return "A weathered tablet lies here, covered in strange symbols."
+
+        if target in {"idol", "figure"}:
+            if "idol" in self.state.inventory:
+                return "A small stone idol, worn smooth by ages. Its expression is serene but watchful."
+            if "idol" in self.current_room().items:
+                return "An ancient idol watches from the shadows, its stone eyes seeming to follow you."
+
+        if target in {"journal", "book", "note"}:
+            if "journal" in self.current_room().items:
+                return (
+                    "The journal is filled with cramped handwriting, most faded beyond reading. "
+                    "One passage stands out: 'The builders hid their greatest treasure "
+                    "where the water weeps and the worthy find rest. Three symbols mark the way: "
+                    "the first, the river tear; the second, the stone memory; "
+                    "the third, the idol gaze.'"
+                )
+
+        return f"You examine the {target}, but find nothing notable."
 
     def save(self, path_text: str) -> str:
         path = Path(path_text) if path_text else Path("savegame.json")

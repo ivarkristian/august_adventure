@@ -53,4 +53,14 @@ def build_world() -> dict[str, Room]:
             exits={"south": "cavern"},
             items=["idol"],
         ),
+        "hidden_passage": Room(
+            name="Hidden Passage",
+            description=(
+                "A narrow passage opens behind a thin veil of water that catches the dim light. "
+                "The sound of trickling water fills the air. Ancient stonework gives way to a small alcove "
+                "where dust motes dance in the filtered glow. A weathered journal lies open on a stone shelf."
+            ),
+            exits={"west": "trailhead"},
+            items=["journal"],
+        ),
     }
