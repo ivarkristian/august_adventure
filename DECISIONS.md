@@ -139,6 +139,11 @@ Track triage outcomes for August-originated feedback.
   Planned milestone: M2 - Puzzle Depth
   Implemented: Treasury look() now generates contextual room description based on idol_placed flag; "ancient idol watches from the shadows" only shown when idol is still in room items; "idol rests upon the pedestal" shown after placement.
 
+- Issue: `#26`
+  Status: accepted
+  Reason: Latest consolidated review at current commit 16d67c1a (3.33/5). Narrative fit HIGH, Location fit HIGH. Confirms improvements (lamp reveals inscriptions, pedestal puzzle, tablet verses). Remaining: consistent idol presence across all scenarios.
+  Planned milestone: M2 - Puzzle Depth
+
 - Issue: `#21`
   Status: deferred
   Reason: Same consolidated findings as #20/#25; superseded by #25 as primary reference.
