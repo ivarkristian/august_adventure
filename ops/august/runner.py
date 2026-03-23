@@ -555,7 +555,8 @@ def load_text_file(path: Path) -> str:
 
 
 def clean_line(text: str, limit: int = 160) -> str:
-    out = re.sub(r"\s+", " ", text).strip()
+    no_ansi = re.sub(r"\x1B\[[0-?]*[ -/]*[@-~]", "", text)
+    out = re.sub(r"\s+", " ", no_ansi).strip()
     return out[:limit]
 
 
