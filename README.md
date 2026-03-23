@@ -4,7 +4,7 @@ A text-based adventure game inspired by classic exploration games.
 
 This repository is intentionally designed for a multi-agent workflow:
 - OpenCode acts as the primary developer.
-- August (PicoClaw on `192.168.0.96`) acts as tester and creative consultant.
+- August (PicoClaw) acts as tester and creative consultant.
 - GitHub issues are the shared planning and feedback channel.
 
 ## Quick Start

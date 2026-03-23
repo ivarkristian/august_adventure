@@ -1,6 +1,6 @@
 # August Playtest Automation
 
-This runbook sets up August (`192.168.0.96`) to monitor and test this repository.
+This runbook describes the August automation workflow for monitoring and testing this repository.
 
 ## What The Runner Does
 
@@ -39,9 +39,7 @@ This runbook sets up August (`192.168.0.96`) to monitor and test this repository
 
 Preferred auth is a GitHub App.
 
-Add app credentials to:
-
-`~/.config/august-playtest.env`
+Store app credentials in a host-local environment file that is not committed to git.
 
 Required app permission: **Issues: Read and write** on this repository.
 
@@ -51,23 +49,22 @@ Set:
 - `AUGUST_GH_INSTALLATION_ID`
 - `AUGUST_GH_APP_PRIVATE_KEY_PATH`
 
-Store the app private key file at the configured path with mode `600`.
+Store the app private key in a host-local path with mode `600`.
 
 Fallback auth (`AUGUST_GITHUB_TOKEN`) is supported but not recommended.
 
 ## Install On August Host
 
-On `192.168.0.96`:
+On the August host, from a local checkout of this repository:
 
 ```bash
-cd ~/august_adventure
 bash ops/august/install_on_august.sh
 ```
 
-Then edit env file:
+Then edit your host-local environment file:
 
 ```bash
-nano ~/.config/august-playtest.env
+nano <path-to-local-august-playtest-env>
 ```
 
 Set app credentials (recommended) or fallback PAT.
@@ -75,8 +72,8 @@ Set app credentials (recommended) or fallback PAT.
 If using app auth, verify key permissions:
 
 ```bash
-chmod 600 ~/.config/august-github-app.pem
-chmod 600 ~/.config/august-playtest.env
+chmod 600 <path-to-github-app-key>
+chmod 600 <path-to-local-august-playtest-env>
 ```
 
 Optional Discord pin target:

@@ -10,7 +10,7 @@ Operational guidance for coding agents working in `august-adventure`.
 
 ## Roles And Collaboration
 - OpenCode is the primary developer and release manager.
-- August (PicoClaw on `192.168.0.96`) is tester and creative consultant.
+- August (PicoClaw) is tester and creative consultant.
 - Human owner approves goals and direction.
 - GitHub issues and PRs are the planning and review channel.
 

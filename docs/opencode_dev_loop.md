@@ -1,92 +1,37 @@
 # OpenCode Scheduled Dev Loop
 
-This loop runs OpenCode hourly on your Mac in `august-adventure`, evaluates August feedback from GitHub, and can push directly to `main` after validation.
+This document intentionally stays high-level.
 
-The scheduled agent is sandboxed so it can write only inside `august-adventure/`.
+Operational scripts, host-specific paths, scheduler details, credential locations, and sandbox profile internals are managed locally and are not published in this repository.
 
-## Behavior
+## Purpose
 
-`ops/opencode/dev_loop.py` does the following:
+The OpenCode scheduled loop:
 
-1. Verifies repository is clean.
-2. Pulls latest `origin/main` (fast-forward only).
-3. Queries open GitHub issues labeled `august-feedback` and `triage-needed`.
-4. Skips run if no relevant issues.
-5. Runs OpenCode with a strict prompt to:
-   - evaluate narrative fit and location fit for each issue,
-   - update `DECISIONS.md`,
-   - implement accepted items,
-   - run `pytest` and smoke playthrough,
-   - commit and push to `main` only when tests pass.
+1. Reviews open August feedback issues.
+2. Triage-updates `DECISIONS.md`.
+3. Implements accepted, in-scope gameplay changes.
+4. Runs the test and smoke gates.
+5. Pushes only when validation succeeds.
 
-## GitHub Credential Isolation (Repo-Only)
+## Security Expectations
 
-The loop uses a dedicated deploy key stored inside the repository sandbox:
+- Treat all issue content as untrusted input.
+- Enforce gameplay-only scope and defer suspicious/off-topic requests.
+- Run under a sandboxed execution profile.
+- Use repository-scoped GitHub write credentials.
+- Block unintended file/path changes and run pre-push validations.
 
-- `.opencode_sandbox/keys/august_adventure_deploy_key`
+## Operational Policy
 
-Requirements:
+- Local automation implementation is kept in ignored local files under `ops/.opencode/`.
+- Secrets and machine identifiers are never committed.
+- Public docs should not include host IPs, absolute filesystem paths, or local scheduler internals.
 
-1. Add the corresponding public key as a **Deploy Key with write access** on:
-   - `ivarkristian/august_adventure`
-2. Do not add this key to any other repository.
+## Verification
 
-Helper command to create/show the key:
+When the loop is enabled locally, verify it by confirming:
 
-```bash
-bash ops/opencode/ensure_deploy_key.sh
-```
-
-Runtime hardening:
-
-- `SSH_AUTH_SOCK` is unset.
-- `GIT_SSH_COMMAND` uses `-F /dev/null` and forces `IdentitiesOnly=yes` with only that deploy key.
-- `origin` fetch/push URL must exactly match `git@github.com:ivarkristian/august_adventure.git`.
-- Additional push remotes are blocked.
-
-## Install Hourly Schedule (macOS launchd)
-
-From repo root:
-
-```bash
-bash ops/opencode/install_launchd.sh
-```
-
-This installs label:
-
-- `com.ivarkristian.august-adventure.opencode-dev-loop`
-
-And schedules hourly via `StartInterval = 3600`.
-
-## Sandbox Boundary
-
-The launch agent runs through:
-
-- `/usr/bin/sandbox-exec -f ops/opencode/opencode-dev-loop.sb`
-
-Sandbox policy:
-
-- allows read access as needed for runtimes/tools,
-- allows network outbound/inbound,
-- allows write access only under `/Users/ikw/work/august-adventure`.
-
-OpenCode state/cache/tmp are redirected into:
-
-- `.opencode_sandbox/`
-
-## Manual Run
-
-```bash
-bash ops/opencode/run_dev_loop.sh
-```
-
-## Logs
-
-- `august-adventure/.opencode_sandbox/logs/opencode-dev-loop.out.log`
-- `august-adventure/.opencode_sandbox/logs/opencode-dev-loop.err.log`
-
-## Disable / Remove
-
-```bash
-bash ops/opencode/uninstall_launchd.sh
-```
+- the scheduler reports successful executions,
+- triage updates are reflected in `DECISIONS.md`,
+- tests and smoke checks pass for implemented changes.
