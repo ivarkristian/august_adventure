@@ -13,9 +13,12 @@ This runbook describes the August automation workflow for monitoring and testing
    - `pytest`
    - `python scripts/playthrough_smoke.py`
 5. Run three exploratory playthroughs (explorer, puzzle, skeptic).
-6. Ask August for a structured assessment using:
-   - `docs/playtest_rubric.md`
-   - `ops/august/consultant_roles.md`
+6. Ask August for a structured assessment using role-split consultant passes:
+    - `docs/playtest_rubric.md`
+    - `ops/august/consultant_roles.md`
+   - roles: QA, Narrative, Puzzle, Agency, Publisher
+   - each role receives game output context (raw excerpt or compressed summary), game rules/actions, short game description, and role guidance
+   - payloads are capped by adaptive context budgets and retried with compressed packs on token-limit failures
 7. Produce:
    - up to 3 bug issues,
    - up to 3 feature issues,
@@ -29,9 +32,10 @@ This runbook describes the August automation workflow for monitoring and testing
    - `current/story_arc_notes.txt`
    - `current/role_notes_qa.txt`
    - `current/role_notes_narrative.txt`
-   - `current/role_notes_puzzle.txt`
-   - `current/role_notes_agency.txt`
-   - `current/latest_playtest_brief.txt`
+    - `current/role_notes_puzzle.txt`
+    - `current/role_notes_agency.txt`
+    - `current/role_notes_publisher.txt`
+    - `current/latest_playtest_brief.txt`
    - snapshots in `history_docs/snapshots/<timestamp>_<commit>/`
 10. Pin the latest playtest brief in Discord.
 
@@ -86,6 +90,13 @@ Playtest report destination (recommended for channel-only reporting):
   or
 - `AUGUST_DISCORD_REPORT_CHANNEL_NAME=august-adventure`
 
+Optional consultant reliability controls:
+
+- `AUGUST_PICOCLAW_MODEL=<model>` (pin a specific model instead of default auto)
+- `AUGUST_PICOCLAW_SESSION_PREFIX=cli:august-playtest`
+- `AUGUST_CONTEXT_CHAR_BUDGET=14000`
+- `AUGUST_RESET_PICOCLAW_MAIN_SESSION=1`
+
 If not set, runner pins the latest brief in the owner DM channel.
 
 ## Operations
@@ -117,3 +128,4 @@ AUGUST_FORCE=1 systemctl --user start august-playtest.service
 - Historical docs are always refreshed for each tested commit and snapshotted for later reference.
 - If report channel env is set, summaries are posted to that channel instead of DM.
 - Consultant output includes additive narrative/puzzle suggestions and overarching story-arc assessment.
+- Publisher-role suggestions are only opened as feature issues when they are concrete gameplay/content changes.

@@ -28,6 +28,57 @@ DIMENSIONS: list[tuple[str, str]] = [
 ]
 
 
+ROLE_ORDER = ["qa", "narrative", "puzzle", "agency", "publisher"]
+
+
+ROLE_HEADINGS = {
+    "qa": "Role 1: QA Bug Hunter",
+    "narrative": "Role 2: Narrative Designer",
+    "puzzle": "Role 3: Puzzle Architect",
+    "agency": "Role 4: Player Agency Advocate",
+    "publisher": "Role 5: Experienced Game Publisher",
+}
+
+
+ROLE_LABELS = {
+    "qa": "QA Bug Hunter",
+    "narrative": "Narrative Designer",
+    "puzzle": "Puzzle Architect",
+    "agency": "Player Agency Advocate",
+    "publisher": "Experienced Game Publisher",
+}
+
+
+ROLE_FIELD_PRIORITY = {
+    "overall_thoughts": ["publisher", "narrative", "qa", "puzzle", "agency"],
+    "location_assessment": ["narrative", "publisher", "qa", "agency", "puzzle"],
+    "quests_challenges_assessment": ["puzzle", "publisher", "qa", "narrative", "agency"],
+    "agency_assessment": ["agency", "publisher", "qa", "puzzle", "narrative"],
+    "story_arc_assessment": ["narrative", "publisher", "agency", "puzzle", "qa"],
+}
+
+
+DIMENSION_ROLE_PRIORITY = {
+    "environment_richness": ["narrative", "publisher", "qa", "puzzle", "agency"],
+    "description_vividness": ["narrative", "publisher", "qa", "puzzle", "agency"],
+    "puzzle_challenge": ["puzzle", "qa", "publisher", "agency", "narrative"],
+    "player_agency": ["agency", "publisher", "qa", "puzzle", "narrative"],
+    "world_coherence": ["qa", "narrative", "puzzle", "publisher", "agency"],
+    "curiosity_engagement": ["publisher", "narrative", "puzzle", "agency", "qa"],
+}
+
+
+@dataclass
+class ContextCaps:
+    rubric: int
+    role_guidance: int
+    game_description: int
+    rules: int
+    smoke: int
+    transcript_summary: int
+    transcript_excerpt: int
+
+
 @dataclass
 class CmdResult:
     code: int
@@ -432,8 +483,10 @@ def generate_history_docs(
     review: dict[str, Any],
     test_results: dict[str, CmdResult],
     exploratory: dict[str, str],
+    world: dict[str, Any] | None = None,
 ) -> dict[str, str]:
-    world = load_world_from_source(repo_dir)
+    if world is None:
+        world = load_world_from_source(repo_dir)
 
     history_root = repo_dir / "history_docs"
     current_dir = history_root / "current"
@@ -451,6 +504,7 @@ def generate_history_docs(
     narrative_notes = role_notes.get("narrative", []) if isinstance(role_notes.get("narrative"), list) else []
     puzzle_notes = role_notes.get("puzzle", []) if isinstance(role_notes.get("puzzle"), list) else []
     agency_notes = role_notes.get("agency", []) if isinstance(role_notes.get("agency"), list) else []
+    publisher_notes = role_notes.get("publisher", []) if isinstance(role_notes.get("publisher"), list) else []
 
     docs: dict[str, str] = {
         "game_intro.txt": build_intro_text(commit_sha, review),
@@ -462,6 +516,7 @@ def generate_history_docs(
         "role_notes_narrative.txt": build_role_notes_text("Role Notes - Narrative Designer", narrative_notes),
         "role_notes_puzzle.txt": build_role_notes_text("Role Notes - Puzzle Architect", puzzle_notes),
         "role_notes_agency.txt": build_role_notes_text("Role Notes - Player Agency Advocate", agency_notes),
+        "role_notes_publisher.txt": build_role_notes_text("Role Notes - Experienced Game Publisher", publisher_notes),
     }
     docs["latest_playtest_brief.txt"] = build_latest_brief_text(repo, commit_sha, review, test_results, snapshot_id)
 
@@ -513,6 +568,174 @@ def env_positive_int(name: str, default: int) -> int:
     except ValueError:
         return default
     return value if value > 0 else default
+
+
+def compact_lines(lines: list[str], limit_items: int, limit_chars: int = 200) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in lines:
+        cleaned = clean_line(raw, limit_chars)
+        key = cleaned.lower()
+        if not cleaned or key in seen:
+            continue
+        seen.add(key)
+        out.append(cleaned)
+        if len(out) >= limit_items:
+            break
+    return out
+
+
+def extract_markdown_section(text: str, heading: str) -> str:
+    pattern = re.compile(rf"^## {re.escape(heading)}\s*$\n(.*?)(?=^##\s+|\Z)", re.MULTILINE | re.DOTALL)
+    match = pattern.search(text)
+    if not match:
+        return ""
+    return match.group(1).strip()
+
+
+def build_game_description_text(world: dict[str, Any], limit: int = 900) -> str:
+    room_names = [str(getattr(room, "name", key)) for key, room in world.items()]
+    lock_lines: list[str] = []
+    for room_key, room in world.items():
+        room_name = str(getattr(room, "name", room_key))
+        locks = getattr(room, "locks", {})
+        if not locks:
+            continue
+        for direction, item in locks.items():
+            lock_lines.append(f"{room_name}: {direction} requires {item}")
+
+    room_summary = ", ".join(room_names[:8]) if room_names else "unknown rooms"
+    lock_summary = "; ".join(lock_lines[:6]) if lock_lines else "no explicit directional locks"
+    text = (
+        "August Adventure is a compact text adventure focused on exploration, room identity, puzzle chaining, "
+        "and coherent item interactions. "
+        f"Known locations in this build: {room_summary}. "
+        f"Current gating observed from source: {lock_summary}. "
+        "The intended feel is atmospheric, fair, and rewarding for players who experiment with commands and items."
+    )
+    return clean_line(text, limit)
+
+
+def build_scenario_context_lines(name: str, transcript: str) -> list[str]:
+    lines = [line.strip() for line in transcript.splitlines() if line.strip()]
+    if not lines:
+        return [f"{name}: no transcript output"]
+
+    key_pattern = re.compile(
+        r"(taken:|you use|you unlock|you open|you discover|you find|you cannot|can't|locked|requires|"
+        r"idol|tablet|glyph|coin|lamp|gate|save|load|error)",
+        re.IGNORECASE,
+    )
+
+    selected: list[str] = []
+    selected.extend(lines[:4])
+    selected.extend(line for line in lines if key_pattern.search(line))
+    selected.extend(lines[-4:])
+    compact = compact_lines(selected, limit_items=14, limit_chars=220)
+    return [f"{name}: {line}" for line in compact]
+
+
+def build_exploratory_summary_text(exploratory: dict[str, str], limit: int) -> str:
+    all_lines: list[str] = []
+    for scenario_name in ["curious_explorer", "puzzle_solver", "skeptical_breaker"]:
+        if scenario_name in exploratory:
+            all_lines.extend(build_scenario_context_lines(scenario_name, exploratory[scenario_name]))
+    summary = "\n".join(f"- {line}" for line in compact_lines(all_lines, limit_items=36, limit_chars=220))
+    if not summary:
+        summary = "- No exploratory transcript summary available."
+    return summary[:limit]
+
+
+def build_exploratory_excerpt_text(exploratory: dict[str, str], limit: int) -> str:
+    chunks: list[str] = []
+    per_scenario = max(220, limit // max(1, len(exploratory)))
+    for name in ["puzzle_solver", "curious_explorer", "skeptical_breaker"]:
+        text = exploratory.get(name, "")
+        if not text:
+            continue
+        chunks.append(f"## Scenario: {name}\n{text[:per_scenario]}")
+    payload = "\n\n".join(chunks)
+    if not payload:
+        payload = "(no exploratory excerpt available)"
+    return payload[:limit]
+
+
+def compute_context_caps(base_budget: int, compression_tier: int) -> ContextCaps:
+    factors = [1.0, 0.72, 0.52, 0.36]
+    factor = factors[min(compression_tier, len(factors) - 1)]
+    effective = max(3200, int(base_budget * factor))
+
+    weights = {
+        "rubric": 0.18,
+        "role_guidance": 0.16,
+        "game_description": 0.08,
+        "rules": 0.17,
+        "smoke": 0.11,
+        "transcript_summary": 0.18,
+        "transcript_excerpt": 0.12,
+    }
+
+    values = {key: max(160, int(effective * weight)) for key, weight in weights.items()}
+    return ContextCaps(
+        rubric=values["rubric"],
+        role_guidance=values["role_guidance"],
+        game_description=values["game_description"],
+        rules=values["rules"],
+        smoke=values["smoke"],
+        transcript_summary=values["transcript_summary"],
+        transcript_excerpt=values["transcript_excerpt"],
+    )
+
+
+def is_token_limit_error(result: CmdResult) -> bool:
+    payload = f"{result.out}\n{result.err}".lower()
+    return "prompt tokens limit exceeded" in payload or "token limit" in payload or "maximum context" in payload
+
+
+def has_meaningful_dimension_why(entry: dict[str, Any]) -> bool:
+    why = str(entry.get("why", "")).strip().lower()
+    return bool(why and why != "no clear assessment provided.")
+
+
+def dedupe_feature_title(title: str) -> str:
+    return re.sub(r"\s+", " ", title.strip().lower())
+
+
+def is_concrete_gameplay_feature(feature: dict[str, Any]) -> bool:
+    text = f"{feature.get('title', '')} {feature.get('proposal', '')}".lower()
+    concrete_keywords = [
+        "room",
+        "location",
+        "puzzle",
+        "item",
+        "inventory",
+        "command",
+        "interaction",
+        "trailhead",
+        "foyer",
+        "cavern",
+        "treasury",
+        "lamp",
+        "coin",
+        "idol",
+        "tablet",
+        "glyph",
+        "story",
+        "lore",
+    ]
+    abstract_keywords = [
+        "pricing",
+        "marketing",
+        "revenue",
+        "ads",
+        "monetization",
+        "campaign",
+        "store page",
+        "wishlist",
+    ]
+    if any(word in text for word in abstract_keywords):
+        return False
+    return any(word in text for word in concrete_keywords)
 
 
 def parse_json_object(text: str) -> dict[str, Any]:
@@ -603,6 +826,7 @@ def normalize_suggestions(raw: dict[str, Any], max_bugs: int, max_features: int)
         "narrative": clean_list(role_notes_raw.get("narrative", []), 8, 260),
         "puzzle": clean_list(role_notes_raw.get("puzzle", []), 8, 260),
         "agency": clean_list(role_notes_raw.get("agency", []), 8, 260),
+        "publisher": clean_list(role_notes_raw.get("publisher", []), 8, 260),
     }
 
     bugs: list[dict[str, Any]] = []
@@ -625,11 +849,18 @@ def normalize_suggestions(raw: dict[str, Any], max_bugs: int, max_features: int)
     for feature in features_raw:
         if not isinstance(feature, dict):
             continue
+        concrete_raw = feature.get("concrete_gameplay_change")
+        concrete_flag = False
+        if isinstance(concrete_raw, bool):
+            concrete_flag = concrete_raw
+        elif isinstance(concrete_raw, str):
+            concrete_flag = concrete_raw.strip().lower() in {"1", "true", "yes", "y"}
         features.append(
             {
                 "title": clean_line(str(feature.get("title", "Playtest feature idea")), 120),
                 "player_value": clean_line(str(feature.get("player_value", "")), 800),
                 "proposal": clean_line(str(feature.get("proposal", "")), 800),
+                "concrete_gameplay_change": concrete_flag,
             }
         )
     features = features[:max_features]
@@ -662,92 +893,6 @@ def normalize_suggestions(raw: dict[str, Any], max_bugs: int, max_features: int)
     return normalized
 
 
-def build_consultant_prompt(
-    commit_sha: str,
-    test_results: dict[str, CmdResult],
-    exploratory: dict[str, str],
-    rubric_text: str,
-    roles_text: str,
-    max_bugs: int,
-    max_features: int,
-) -> str:
-    transcript = []
-    for name, text in exploratory.items():
-        transcript.append(f"## Scenario: {name}\n{text[:2800]}")
-    transcript_blob = "\n\n".join(transcript)
-
-    prompt = f"""
-You are August, a senior text-adventure playtester and creative consultant.
-
-Follow the rubric and role guidance below.
-
-RUBRIC:
-{rubric_text[:9000]}
-
-ROLE GUIDANCE:
-{roles_text[:7000]}
-
-Context:
-- Commit: {commit_sha}
-- Pytest exit: {test_results['pytest'].code}
-- Smoke exit: {test_results['smoke'].code}
-- Pytest output:
-{test_results['pytest'].out[:2200]}
-{test_results['pytest'].err[:1200]}
-
-- Smoke output:
-{test_results['smoke'].out[:2200]}
-{test_results['smoke'].err[:1200]}
-
-Exploratory transcripts:
-{transcript_blob}
-
-Return STRICT JSON only with this schema:
-{{
-  "overall_review": {{
-    "overall_thoughts": "string",
-    "dimension_scores": [
-      {{"dimension":"environment_richness","score":1-5,"why":"string"}},
-      {{"dimension":"description_vividness","score":1-5,"why":"string"}},
-      {{"dimension":"puzzle_challenge","score":1-5,"why":"string"}},
-      {{"dimension":"player_agency","score":1-5,"why":"string"}},
-      {{"dimension":"world_coherence","score":1-5,"why":"string"}},
-      {{"dimension":"curiosity_engagement","score":1-5,"why":"string"}}
-    ],
-    "location_assessment":"string",
-    "quests_challenges_assessment":"string",
-    "agency_assessment":"string",
-    "story_arc_assessment":"string",
-    "narrative_additions":["string"],
-    "puzzle_additions":["string"],
-    "top_strengths":["string"],
-    "top_improvements":["string"],
-    "role_notes": {{
-      "qa":["string"],
-      "narrative":["string"],
-      "puzzle":["string"],
-      "agency":["string"]
-    }}
-  }},
-  "bugs": [{{"title":"string","summary":"string","repro_steps":["string"],"severity":"low|medium|high"}}],
-  "features": [{{"title":"string","player_value":"string","proposal":"string"}}]
-}}
-
-Rules:
-- Max {max_bugs} bugs.
-- Max {max_features} features.
-- Base scores on rubric anchors, do not invent a custom scale.
-- Keep bug and feature titles concise.
-- Ensure qualitative sections are specific and evidence-based.
-- Keep positive feedback brief: 1-2 short bullets in `top_strengths` and concise praise in `overall_thoughts`.
-- Emphasize additions and improvements: provide more detail in `top_improvements`, `narrative_additions`, `puzzle_additions`, bugs, and features.
-- Propose additive narrative and puzzle ideas (not critique only).
-- Narrative role must include an overarching story-arc assessment after location-level notes.
-- Role notes should be concise and actionable so they can be persisted as text files.
-    """.strip()
-    return prompt
-
-
 def consultant_review_has_substance(review: dict[str, Any]) -> bool:
     text_fields = [
         "overall_thoughts",
@@ -768,7 +913,7 @@ def consultant_review_has_substance(review: dict[str, Any]) -> bool:
 
     role_notes = review.get("role_notes", {})
     if isinstance(role_notes, dict):
-        for key in ["qa", "narrative", "puzzle", "agency"]:
+        for key in ["qa", "narrative", "puzzle", "agency", "publisher"]:
             notes = role_notes.get(key, [])
             if isinstance(notes, list) and any(str(v).strip() for v in notes):
                 return True
@@ -816,69 +961,73 @@ def run_picoclaw_consultant(message: str, session_key: str, model: str) -> CmdRe
     return run_cmd(cmd, timeout=420)
 
 
-def ask_august_consultant(
+def build_role_guidance_text(roles_text: str, role_key: str, cap: int) -> str:
+    role_heading = ROLE_HEADINGS[role_key]
+    role_body = extract_markdown_section(roles_text, role_heading)
+    synthesis = extract_markdown_section(roles_text, "Synthesis Guidance")
+    lines = [f"{role_heading}"]
+    if role_body:
+        lines.append(role_body)
+    if synthesis:
+        lines.append("Synthesis Guidance")
+        lines.append(synthesis)
+    payload = "\n\n".join(lines).strip()
+    return payload[:cap]
+
+
+def build_role_prompt(
+    role_key: str,
     commit_sha: str,
     test_results: dict[str, CmdResult],
-    exploratory: dict[str, str],
     rubric_text: str,
-    roles_text: str,
-    max_bugs: int,
-    max_features: int,
-) -> dict[str, Any]:
-    prompt = build_consultant_prompt(
-        commit_sha,
-        test_results,
-        exploratory,
-        rubric_text,
-        roles_text,
-        max_bugs,
-        max_features,
+    role_guidance: str,
+    game_description: str,
+    rules_text: str,
+    smoke_excerpt: str,
+    exploratory_summary: str,
+    exploratory_excerpt: str,
+    role_max_bugs: int,
+    role_max_features: int,
+) -> str:
+    role_label = ROLE_LABELS[role_key]
+    publisher_rule = (
+        "- As publisher role, include feature suggestions only when they are concrete gameplay/content changes.\n"
+        "- For every feature include `concrete_gameplay_change` boolean. Use true only for concrete in-game changes."
+        if role_key == "publisher"
+        else "- Set `concrete_gameplay_change` to true only when the feature is a concrete in-game gameplay/content change."
     )
 
-    def is_meaningful(pack: dict[str, Any]) -> bool:
-        review = pack.get("overall_review", {}) if isinstance(pack, dict) else {}
-        if not isinstance(review, dict):
-            return False
-        if str(review.get("overall_thoughts", "")).strip():
-            return True
-        if str(review.get("story_arc_assessment", "")).strip():
-            return True
-        if isinstance(review.get("narrative_additions"), list) and review.get("narrative_additions"):
-            return True
-        if isinstance(review.get("puzzle_additions"), list) and review.get("puzzle_additions"):
-            return True
-        if isinstance(review.get("top_strengths"), list) and review.get("top_strengths"):
-            return True
-        if isinstance(review.get("top_improvements"), list) and review.get("top_improvements"):
-            return True
-        return False
+    return f"""
+You are August acting only as: {role_label}.
 
-    attempts: list[str] = [prompt]
+Follow rubric anchors and role guidance exactly.
 
-    concise_transcript = ""
-    for key in ["puzzle_solver", "curious_explorer", "skeptical_breaker"]:
-        if key in exploratory and exploratory[key].strip():
-            concise_transcript = exploratory[key][:1800]
-            break
+RUBRIC EXCERPT:
+{rubric_text}
 
-    concise_prompt = f"""
-You are August, a text-adventure playtester. Return STRICT JSON only.
-Use rubric anchors exactly; do not invent scoring scales.
+ROLE GUIDANCE:
+{role_guidance}
 
-Rubric:
-{rubric_text[:3500]}
+Game description:
+{game_description}
 
-Context:
+Game rules and actions:
+{rules_text}
+
+Test context:
 - Commit: {commit_sha}
 - Pytest exit: {test_results['pytest'].code}
 - Smoke exit: {test_results['smoke'].code}
-- Smoke output excerpt:
-{test_results['smoke'].out[:1400]}
+- Smoke excerpt:
+{smoke_excerpt}
 
-- Exploratory excerpt:
-{concise_transcript}
+Game output summary:
+{exploratory_summary}
 
-Schema:
+Game output excerpt:
+{exploratory_excerpt}
+
+Return STRICT JSON only with this schema:
 {{
   "overall_review": {{
     "overall_thoughts": "string",
@@ -902,42 +1051,272 @@ Schema:
       "qa":["string"],
       "narrative":["string"],
       "puzzle":["string"],
-      "agency":["string"]
+      "agency":["string"],
+      "publisher":["string"]
     }}
   }},
   "bugs": [{{"title":"string","summary":"string","repro_steps":["string"],"severity":"low|medium|high"}}],
-  "features": [{{"title":"string","player_value":"string","proposal":"string"}}]
+  "features": [{{"title":"string","player_value":"string","proposal":"string","concrete_gameplay_change":true}}]
 }}
 
-Limits:
-- max {max_bugs} bugs
-- max {max_features} features
-- keep `top_strengths` short (1-2 bullets)
-- prioritize depth in `top_improvements`, `narrative_additions`, and `puzzle_additions`
-- include at least 2 narrative_additions and 2 puzzle_additions when possible
-- include story_arc_assessment and role_notes
+Rules:
+- You are only this role: {role_label}.
+- Max {role_max_bugs} bugs.
+- Max {role_max_features} features.
+- Base scores on rubric anchors, do not invent a custom scale.
+- Keep positive feedback brief (1-2 short bullets).
+- Put most detail into actionable improvements/additions.
+{publisher_rule}
 """.strip()
-    attempts.append(concise_prompt)
 
+
+def role_pack_is_meaningful(pack: dict[str, Any]) -> bool:
+    review = pack.get("overall_review", {}) if isinstance(pack, dict) else {}
+    if isinstance(review, dict) and consultant_review_has_substance(review):
+        return True
+    bugs = pack.get("bugs", []) if isinstance(pack, dict) else []
+    features = pack.get("features", []) if isinstance(pack, dict) else []
+    return bool(isinstance(bugs, list) and bugs) or bool(isinstance(features, list) and features)
+
+
+def choose_first_text(role_packs: dict[str, dict[str, Any]], field_name: str) -> str:
+    for role in ROLE_FIELD_PRIORITY[field_name]:
+        review = role_packs.get(role, {}).get("overall_review", {})
+        if not isinstance(review, dict):
+            continue
+        value = str(review.get(field_name, "")).strip()
+        if value:
+            return value
+    return ""
+
+
+def merge_dimension_scores(role_packs: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    merged: list[dict[str, Any]] = []
+    for dim_id, _ in DIMENSIONS:
+        chosen: dict[str, Any] | None = None
+        fallback: dict[str, Any] | None = None
+        for role in DIMENSION_ROLE_PRIORITY.get(dim_id, ROLE_ORDER):
+            review = role_packs.get(role, {}).get("overall_review", {})
+            if not isinstance(review, dict):
+                continue
+            dim_scores = review.get("dimension_scores", [])
+            if not isinstance(dim_scores, list):
+                continue
+            for item in dim_scores:
+                if not isinstance(item, dict):
+                    continue
+                if str(item.get("dimension", "")) != dim_id:
+                    continue
+                if fallback is None:
+                    fallback = item
+                if has_meaningful_dimension_why(item):
+                    chosen = item
+                    break
+            if chosen is not None:
+                break
+        source = chosen or fallback or {"dimension": dim_id, "score": 3, "why": "No clear assessment provided."}
+        score = source.get("score", 3)
+        try:
+            score_int = int(score)
+        except (TypeError, ValueError):
+            score_int = 3
+        score_int = max(1, min(5, score_int))
+        merged.append({"dimension": dim_id, "score": score_int, "why": clean_line(str(source.get("why", "")), 240)})
+    return merged
+
+
+def merge_list_field(
+    role_packs: dict[str, dict[str, Any]],
+    field_name: str,
+    role_priority: list[str],
+    limit_items: int,
+) -> list[str]:
+    collected: list[str] = []
+    seen: set[str] = set()
+    for role in role_priority:
+        review = role_packs.get(role, {}).get("overall_review", {})
+        if not isinstance(review, dict):
+            continue
+        values = review.get(field_name, [])
+        if not isinstance(values, list):
+            continue
+        for value in values:
+            text = clean_line(str(value), 220)
+            if not text:
+                continue
+            key = text.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+            collected.append(text)
+            if len(collected) >= limit_items:
+                return collected
+    return collected
+
+
+def merge_role_notes(role_packs: dict[str, dict[str, Any]]) -> dict[str, list[str]]:
+    merged: dict[str, list[str]] = {key: [] for key in ROLE_ORDER}
+    for role in ROLE_ORDER:
+        review = role_packs.get(role, {}).get("overall_review", {})
+        if not isinstance(review, dict):
+            continue
+        role_notes = review.get("role_notes", {})
+        if not isinstance(role_notes, dict):
+            continue
+        notes = role_notes.get(role, [])
+        if not isinstance(notes, list):
+            continue
+        merged[role] = compact_lines([str(note) for note in notes], limit_items=8, limit_chars=260)
+    return merged
+
+
+def merge_role_consultant_packs(
+    role_packs: dict[str, dict[str, Any]],
+    max_bugs: int,
+    max_features: int,
+) -> dict[str, Any]:
+    scores = merge_dimension_scores(role_packs)
+    average = sum(item["score"] for item in scores) / len(scores)
+
+    review = {
+        "overall_thoughts": choose_first_text(role_packs, "overall_thoughts"),
+        "dimension_scores": scores,
+        "overall_score": round(average, 2),
+        "location_assessment": choose_first_text(role_packs, "location_assessment"),
+        "quests_challenges_assessment": choose_first_text(role_packs, "quests_challenges_assessment"),
+        "agency_assessment": choose_first_text(role_packs, "agency_assessment"),
+        "story_arc_assessment": choose_first_text(role_packs, "story_arc_assessment"),
+        "narrative_additions": merge_list_field(role_packs, "narrative_additions", ["narrative", "publisher", "qa"], 6),
+        "puzzle_additions": merge_list_field(role_packs, "puzzle_additions", ["puzzle", "publisher", "qa"], 6),
+        "top_strengths": merge_list_field(role_packs, "top_strengths", ["publisher", "narrative", "puzzle", "agency", "qa"], 2),
+        "top_improvements": merge_list_field(role_packs, "top_improvements", ["publisher", "puzzle", "narrative", "agency", "qa"], 5),
+        "role_notes": merge_role_notes(role_packs),
+    }
+
+    bug_priority = ["qa", "puzzle", "agency", "narrative", "publisher"]
+    feature_priority = ["publisher", "puzzle", "narrative", "agency", "qa"]
+
+    bugs: list[dict[str, Any]] = []
+    seen_bugs: set[str] = set()
+    for role in bug_priority:
+        for bug in role_packs.get(role, {}).get("bugs", []):
+            if not isinstance(bug, dict):
+                continue
+            title_key = dedupe_feature_title(str(bug.get("title", "")))
+            if not title_key or title_key in seen_bugs:
+                continue
+            seen_bugs.add(title_key)
+            bugs.append(bug)
+            if len(bugs) >= max_bugs:
+                break
+        if len(bugs) >= max_bugs:
+            break
+
+    features: list[dict[str, Any]] = []
+    seen_features: set[str] = set()
+    for role in feature_priority:
+        for feature in role_packs.get(role, {}).get("features", []):
+            if not isinstance(feature, dict):
+                continue
+            if role == "publisher":
+                if not bool(feature.get("concrete_gameplay_change")):
+                    continue
+                if not is_concrete_gameplay_feature(feature):
+                    continue
+            title_key = dedupe_feature_title(str(feature.get("title", "")))
+            if not title_key or title_key in seen_features:
+                continue
+            seen_features.add(title_key)
+            features.append(feature)
+            if len(features) >= max_features:
+                break
+        if len(features) >= max_features:
+            break
+
+    return {"overall_review": review, "bugs": bugs, "features": features}
+
+
+def ask_august_consultant(
+    commit_sha: str,
+    test_results: dict[str, CmdResult],
+    exploratory: dict[str, str],
+    world: dict[str, Any],
+    rubric_text: str,
+    roles_text: str,
+    max_bugs: int,
+    max_features: int,
+) -> tuple[dict[str, Any], list[str]]:
     model_override = os.getenv("AUGUST_PICOCLAW_MODEL", "").strip()
     session_prefix = os.getenv("AUGUST_PICOCLAW_SESSION_PREFIX", "cli:august-playtest")
+    context_budget = env_positive_int("AUGUST_CONTEXT_CHAR_BUDGET", 14000)
 
-    for idx, attempt in enumerate(attempts, start=1):
-        session_key = build_consultant_session_key(session_prefix, commit_sha, idx)
-        result = run_picoclaw_consultant(attempt, session_key, model_override)
-        text = "\n".join(part for part in [result.out, result.err] if part)
-        parsed = parse_json_object(text)
-        pack = normalize_suggestions(parsed, max_bugs, max_features)
-        if is_meaningful(pack):
-            return pack
+    game_description_raw = build_game_description_text(world, limit=1200)
+    rules_raw = build_rules_text(world, test_results["smoke"].out)
+    exploratory_summary_raw = build_exploratory_summary_text(exploratory, limit=6000)
 
-        reason = clean_line((result.err or result.out or "no output"), 220)
-        print(
-            f"consultant-attempt-{idx} non-meaningful "
-            f"(rc={result.code}, session={session_key}): {reason}"
-        )
+    role_max_bugs_map = {
+        "qa": max_bugs,
+        "narrative": min(1, max_bugs),
+        "puzzle": min(2, max_bugs),
+        "agency": min(1, max_bugs),
+        "publisher": min(1, max_bugs),
+    }
+    role_max_features_map = {
+        "qa": min(1, max_features),
+        "narrative": min(2, max_features),
+        "puzzle": min(2, max_features),
+        "agency": min(2, max_features),
+        "publisher": max_features,
+    }
 
-    return normalize_suggestions({}, max_bugs, max_features)
+    role_packs: dict[str, dict[str, Any]] = {}
+    runner_notes: list[str] = []
+
+    for role_key in ROLE_ORDER:
+        role_pack = normalize_suggestions({}, max_bugs, max_features)
+        role_succeeded = False
+
+        for tier in range(4):
+            caps = compute_context_caps(context_budget, tier)
+            role_guidance = build_role_guidance_text(roles_text, role_key, caps.role_guidance)
+            prompt = build_role_prompt(
+                role_key=role_key,
+                commit_sha=commit_sha,
+                test_results=test_results,
+                rubric_text=rubric_text[: caps.rubric],
+                role_guidance=role_guidance,
+                game_description=game_description_raw[: caps.game_description],
+                rules_text=rules_raw[: caps.rules],
+                smoke_excerpt=(test_results["smoke"].out + "\n" + test_results["smoke"].err)[: caps.smoke],
+                exploratory_summary=exploratory_summary_raw[: caps.transcript_summary],
+                exploratory_excerpt=build_exploratory_excerpt_text(exploratory, caps.transcript_excerpt),
+                role_max_bugs=role_max_bugs_map[role_key],
+                role_max_features=role_max_features_map[role_key],
+            )
+
+            session_key = build_consultant_session_key(session_prefix, f"{commit_sha[:12]}-{role_key}", tier + 1)
+            result = run_picoclaw_consultant(prompt, session_key, model_override)
+            text = "\n".join(part for part in [result.out, result.err] if part)
+            parsed = parse_json_object(text)
+            candidate = normalize_suggestions(parsed, max_bugs, max_features)
+
+            if role_pack_is_meaningful(candidate):
+                role_pack = candidate
+                role_succeeded = True
+                break
+
+            token_limited = is_token_limit_error(result)
+            reason = clean_line((result.err or result.out or "no output"), 220)
+            runner_notes.append(
+                f"role={role_key} tier={tier} non-meaningful rc={result.code} token_limited={token_limited} reason={reason}"
+            )
+
+        if not role_succeeded:
+            runner_notes.append(f"role={role_key} exhausted compression tiers; using empty fallback output")
+        role_packs[role_key] = role_pack
+
+    merged = merge_role_consultant_packs(role_packs, max_bugs=max_bugs, max_features=max_features)
+    return merged, runner_notes
 
 
 def format_iso_to_ts(iso_text: str) -> float:
@@ -1418,10 +1797,12 @@ def main() -> int:
 
     rubric_text = load_text_file(repo_dir / "docs" / "playtest_rubric.md")
     roles_text = load_text_file(repo_dir / "ops" / "august" / "consultant_roles.md")
-    review_pack = ask_august_consultant(
+    world = load_world_from_source(repo_dir)
+    review_pack, runner_notes = ask_august_consultant(
         sha,
         test_results,
         exploratory,
+        world,
         rubric_text,
         roles_text,
         max_bugs,
@@ -1429,7 +1810,6 @@ def main() -> int:
     )
 
     review_meaningful = consultant_review_has_substance(review_pack["overall_review"])
-    runner_notes: list[str] = []
     if not review_meaningful:
         runner_notes.append("Consultant output was minimal; qualitative review issue suppressed.")
 
@@ -1468,6 +1848,7 @@ def main() -> int:
         review=review_pack["overall_review"],
         test_results=test_results,
         exploratory=exploratory,
+        world=world,
     )
 
     prev_score = None

@@ -32,11 +32,20 @@ Use these roles in one synthesis pass when reviewing a new build.
 - Evaluate how many meaningful actions are available.
 - Identify moments where player intent is blocked or ignored.
 
+## Role 5: Experienced Game Publisher
+
+- Bring a pragmatic commercial perspective from large adventure RPG releases.
+- Evaluate what makes the experience enjoyable overall, what keeps players engaged, and what would make the game broadly appealing.
+- Prioritize concrete gameplay/content improvements over abstract business commentary.
+- Suggest only actionable in-game additions (features, interactions, progression hooks, replayability elements) that can be implemented in this project.
+- Focus on player retention, clarity of value, and delight without sacrificing narrative and puzzle coherence.
+
 ## Synthesis Guidance
 
 - Combine role findings into one coherent recommendation set.
 - Prioritize improvements with strongest player impact.
 - Keep praise brief and concise (what works/what you liked in 1-2 short points).
 - Put most detail and energy into what should be added or improved next.
+- Ensure each role context uses game output (raw excerpt or compressed summary), game rules/actions, short game description, and role guidance.
 - Keep feedback actionable for the next iteration.
 - Keep concise role notes that can be saved as reference files (`role_notes_*.txt` and `story_arc_notes.txt`).
