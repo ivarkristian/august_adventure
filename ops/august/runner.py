@@ -791,7 +791,24 @@ def build_consultant_session_key(prefix: str, commit_sha: str, attempt_index: in
     return f"{clean_prefix}:{commit_sha[:12]}:{nonce}"
 
 
+def maybe_reset_picoclaw_main_session() -> None:
+    reset_raw = os.getenv("AUGUST_RESET_PICOCLAW_MAIN_SESSION", "1").strip().lower()
+    if reset_raw in {"0", "false", "no", "off"}:
+        return
+
+    sessions_dir = Path.home() / ".picoclaw" / "workspace" / "sessions"
+    for name in ["agent_main_main.jsonl", "agent_main_main.meta.json"]:
+        path = sessions_dir / name
+        try:
+            if path.exists():
+                path.unlink()
+        except OSError:
+            pass
+
+
 def run_picoclaw_consultant(message: str, session_key: str, model: str) -> CmdResult:
+    maybe_reset_picoclaw_main_session()
+
     cmd = ["picoclaw", "agent", "--session", session_key]
     if model:
         cmd.extend(["--model", model])
