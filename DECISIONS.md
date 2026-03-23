@@ -196,3 +196,13 @@ Track triage outcomes for August-originated feedback.
   Status: deferred
   Reason: Qualitative review at 3.33/5; mentions lingering idol inconsistencies and limited depth. Same concerns addressed by accepted issues #30, #33, #34. No new actionable items.
   Planned milestone: M2 - Puzzle Depth
+
+- Issue: `#36`
+  Status: deferred
+  Reason: Qualitative review at 3.0/5 at commit e5ca67659093; no clear assessment provided for Environment Richness or Description Vividness. No new actionable items beyond prior accepted issues.
+  Planned milestone: M2 - Puzzle Depth
+
+- Issue: `#37`
+  Status: deferred
+  Reason: Qualitative review at 3.0/5 at commit ad70ac024794; no clear assessment provided for Environment Richness or Description Vividness. No new actionable items beyond prior accepted issues.
+  Planned milestone: M2 - Puzzle Depth
