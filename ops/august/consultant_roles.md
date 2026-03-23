@@ -36,5 +36,7 @@ Use these roles in one synthesis pass when reviewing a new build.
 
 - Combine role findings into one coherent recommendation set.
 - Prioritize improvements with strongest player impact.
+- Keep praise brief and concise (what works/what you liked in 1-2 short points).
+- Put most detail and energy into what should be added or improved next.
 - Keep feedback actionable for the next iteration.
 - Keep concise role notes that can be saved as reference files (`role_notes_*.txt` and `story_arc_notes.txt`).

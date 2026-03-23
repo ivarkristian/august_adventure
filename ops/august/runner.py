@@ -348,8 +348,8 @@ def build_latest_brief_text(
         label = dim_name.get(str(item.get("dimension", "")), str(item.get("dimension", "")))
         score_lines.append(f"- {label}: {item.get('score', 3)}/5 ({clean_line(str(item.get('why', '')), 80)})")
 
-    strength_lines = [f"- {clean_line(str(x), 140)}" for x in strengths[:3]] if strengths else ["- None"]
-    improvement_lines = [f"- {clean_line(str(x), 140)}" for x in improvements[:3]] if improvements else ["- None"]
+    strength_lines = [f"- {clean_line(str(x), 140)}" for x in strengths[:2]] if strengths else ["- None"]
+    improvement_lines = [f"- {clean_line(str(x), 140)}" for x in improvements[:5]] if improvements else ["- None"]
     narrative_lines = [f"- {clean_line(str(x), 160)}" for x in narrative_additions[:5]] if narrative_additions else ["- None"]
     puzzle_lines = [f"- {clean_line(str(x), 160)}" for x in puzzle_additions[:5]] if puzzle_additions else ["- None"]
 
@@ -648,10 +648,10 @@ def normalize_suggestions(raw: dict[str, Any], max_bugs: int, max_features: int)
             "story_arc_assessment": clean_line(str(review.get("story_arc_assessment", "")), 1200),
             "narrative_additions": clean_list(review.get("narrative_additions", []), 6, 260),
             "puzzle_additions": clean_list(review.get("puzzle_additions", []), 6, 260),
-            "top_strengths": [clean_line(str(x), 220) for x in review.get("top_strengths", [])[:3]]
+            "top_strengths": [clean_line(str(x), 220) for x in review.get("top_strengths", [])[:2]]
             if isinstance(review.get("top_strengths"), list)
             else [],
-            "top_improvements": [clean_line(str(x), 220) for x in review.get("top_improvements", [])[:3]]
+            "top_improvements": [clean_line(str(x), 220) for x in review.get("top_improvements", [])[:5]]
             if isinstance(review.get("top_improvements"), list)
             else [],
             "role_notes": role_notes,
@@ -739,6 +739,8 @@ Rules:
 - Base scores on rubric anchors, do not invent a custom scale.
 - Keep bug and feature titles concise.
 - Ensure qualitative sections are specific and evidence-based.
+- Keep positive feedback brief: 1-2 short bullets in `top_strengths` and concise praise in `overall_thoughts`.
+- Emphasize additions and improvements: provide more detail in `top_improvements`, `narrative_additions`, `puzzle_additions`, bugs, and features.
 - Propose additive narrative and puzzle ideas (not critique only).
 - Narrative role must include an overarching story-arc assessment after location-level notes.
 - Role notes should be concise and actionable so they can be persisted as text files.
@@ -842,6 +844,8 @@ Schema:
 Limits:
 - max {max_bugs} bugs
 - max {max_features} features
+- keep `top_strengths` short (1-2 bullets)
+- prioritize depth in `top_improvements`, `narrative_additions`, and `puzzle_additions`
 - include at least 2 narrative_additions and 2 puzzle_additions when possible
 - include story_arc_assessment and role_notes
 """.strip()
@@ -1242,8 +1246,8 @@ def format_summary(
     narrative_additions = review.get("narrative_additions", [])
     puzzle_additions = review.get("puzzle_additions", [])
 
-    strength_lines = [f"- {clean_line(str(x), 120)}" for x in strengths[:3]] if strengths else ["- None"]
-    improvement_lines = [f"- {clean_line(str(x), 120)}" for x in improvements[:3]] if improvements else ["- None"]
+    strength_lines = [f"- {clean_line(str(x), 120)}" for x in strengths[:2]] if strengths else ["- None"]
+    improvement_lines = [f"- {clean_line(str(x), 120)}" for x in improvements[:5]] if improvements else ["- None"]
     narrative_lines = [f"- {clean_line(str(x), 120)}" for x in narrative_additions[:3]] if narrative_additions else ["- None"]
     puzzle_lines = [f"- {clean_line(str(x), 120)}" for x in puzzle_additions[:3]] if puzzle_additions else ["- None"]
 
