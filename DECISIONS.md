@@ -149,3 +149,12 @@ Track triage outcomes for August-originated feedback.
   Reason: Same consolidated findings as #20/#25; superseded by #25 as primary reference.
   Planned milestone: M2 - Puzzle Depth
 
+- Issue: `#27`
+  Status: deferred
+  Reason: Consolidated review at commit 06fde8f5bbc3 (3.33/5); same findings as #26. Narrative fit HIGH, Location fit HIGH. No new actionable items beyond those already accepted (#18 idol purpose, #19 water echoes, #22 lamp inscriptions, #25 contextual treasury).
+  Planned milestone: M2 - Puzzle Depth
+
+- Issue: `#28`
+  Status: deferred
+  Reason: Consolidated review at commit 4fadb1164eac (3.33/5); same findings as #27/#26. No new actionable items beyond prior accepted issues. Game is functionally complete for M2 scope.
+  Planned milestone: M2 - Puzzle Depth

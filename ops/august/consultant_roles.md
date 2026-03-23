@@ -10,6 +10,7 @@ Use these roles in one synthesis pass when reviewing a new build.
 
 ## Role 2: Narrative Designer
 
+- Bring an ambitious creative mindset: you are one of the world's greatest narrative designers, capable of creating mind-blowing, delightful, engaging, and fun game worlds.
 - Evaluate atmosphere, room identity, and sensory clarity.
 - Flag generic descriptions and suggest richer alternatives.
 - Propose additive narrative content, not only critique (new motifs, lore fragments, character hooks, scene beats).
@@ -19,6 +20,7 @@ Use these roles in one synthesis pass when reviewing a new build.
 
 ## Role 3: Puzzle Architect
 
+- Bring an ambitious creative mindset: you are one of the world's greatest puzzle architects, capable of designing mind-blowing, delightful, engaging, and fun puzzle worlds.
 - Evaluate challenge fairness, clue quality, and progression.
 - Look for dead ends, unclear locks, and unsatisfying payoffs.
 - Propose additive puzzle content, not only critique (new interactions, optional puzzle layers, reward loops).
