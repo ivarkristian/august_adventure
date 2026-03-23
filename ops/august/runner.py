@@ -1093,6 +1093,30 @@ def send_discord_message(token: str, channel_id: str, content: str) -> str:
     return message_id if isinstance(message_id, str) else ""
 
 
+def edit_discord_message(token: str, channel_id: str, message_id: str, content: str) -> str:
+    data = discord_request(
+        token,
+        "PATCH",
+        f"/channels/{channel_id}/messages/{message_id}",
+        {"content": content[:1900]},
+    )
+    edited_id = data.get("id")
+    return edited_id if isinstance(edited_id, str) else ""
+
+
+def list_pinned_discord_messages(token: str, channel_id: str) -> list[dict[str, Any]]:
+    data = discord_request(token, "GET", f"/channels/{channel_id}/pins")
+    return data if isinstance(data, list) else []
+
+
+def is_august_brief_message(message: dict[str, Any]) -> bool:
+    content = str(message.get("content", ""))
+    if not content.startswith("August Adventure - Latest Playtest Brief"):
+        return False
+    author = message.get("author")
+    return isinstance(author, dict) and bool(author.get("bot"))
+
+
 def pin_discord_message(token: str, channel_id: str, message_id: str) -> None:
     headers = {
         "Authorization": f"Bot {token}",
@@ -1407,16 +1431,47 @@ def main() -> int:
         pin_channel_id = os.getenv("AUGUST_DISCORD_PIN_CHANNEL_ID", "").strip() or report_channel_id
         if pin_channel_id:
             try:
-                pin_message_id = send_discord_message(discord_token, pin_channel_id, docs_meta["pinned_message"])
+                prev_pin_id = str(state.get("last_pinned_message_id", ""))
+                prev_pin_channel = str(state.get("last_pinned_channel_id", ""))
+
+                pin_message_id = ""
+                if prev_pin_id and prev_pin_channel == pin_channel_id:
+                    pin_message_id = edit_discord_message(
+                        discord_token,
+                        pin_channel_id,
+                        prev_pin_id,
+                        docs_meta["pinned_message"],
+                    )
+                if not pin_message_id:
+                    pin_message_id = send_discord_message(discord_token, pin_channel_id, docs_meta["pinned_message"])
+
                 if pin_message_id:
-                    prev_pin_id = str(state.get("last_pinned_message_id", ""))
-                    prev_pin_channel = str(state.get("last_pinned_channel_id", ""))
-                    if prev_pin_id and prev_pin_channel == pin_channel_id and prev_pin_id != pin_message_id:
+                    if prev_pin_id and prev_pin_channel and prev_pin_channel != pin_channel_id:
+                        try:
+                            unpin_discord_message(discord_token, prev_pin_channel, prev_pin_id)
+                        except Exception:  # noqa: BLE001
+                            pass
+                    elif prev_pin_id and prev_pin_channel == pin_channel_id and prev_pin_id != pin_message_id:
                         try:
                             unpin_discord_message(discord_token, pin_channel_id, prev_pin_id)
                         except Exception:  # noqa: BLE001
                             pass
+
                     pin_discord_message(discord_token, pin_channel_id, pin_message_id)
+
+                    try:
+                        for pinned_msg in list_pinned_discord_messages(discord_token, pin_channel_id):
+                            other_id = str(pinned_msg.get("id", ""))
+                            if not other_id or other_id == pin_message_id:
+                                continue
+                            if is_august_brief_message(pinned_msg):
+                                try:
+                                    unpin_discord_message(discord_token, pin_channel_id, other_id)
+                                except Exception:  # noqa: BLE001
+                                    pass
+                    except Exception:  # noqa: BLE001
+                        pass
+
                     state["last_pinned_message_id"] = pin_message_id
                     state["last_pinned_channel_id"] = pin_channel_id
             except Exception:  # noqa: BLE001
