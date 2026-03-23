@@ -693,6 +693,17 @@ def is_token_limit_error(result: CmdResult) -> bool:
     return "prompt tokens limit exceeded" in payload or "token limit" in payload or "maximum context" in payload
 
 
+def summarize_consultant_failure(result: CmdResult, parsed: dict[str, Any]) -> str:
+    if is_token_limit_error(result):
+        return "provider token/context limit exceeded"
+    if parsed:
+        return "parsed response lacked required substantive fields"
+    combined = f"{result.out}\n{result.err}"
+    if "████" in combined:
+        return "picoClaw CLI output did not contain parseable JSON"
+    return clean_line((result.err or result.out or "no output"), 180)
+
+
 def has_meaningful_dimension_why(entry: dict[str, Any]) -> bool:
     why = str(entry.get("why", "")).strip().lower()
     return bool(why and why != "no clear assessment provided.")
@@ -1307,7 +1318,7 @@ def ask_august_consultant(
                 break
 
             token_limited = is_token_limit_error(result)
-            reason = clean_line((result.err or result.out or "no output"), 220)
+            reason = summarize_consultant_failure(result, parsed)
             runner_notes.append(
                 f"role={role_key} tier={tier} non-meaningful rc={result.code} token_limited={token_limited} reason={reason}"
             )
