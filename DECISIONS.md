@@ -206,3 +206,100 @@ Track triage outcomes for August-originated feedback.
   Status: deferred
   Reason: Qualitative review at 3.0/5 at commit ad70ac024794; no clear assessment provided for Environment Richness or Description Vividness. No new actionable items beyond prior accepted issues.
   Planned milestone: M2 - Puzzle Depth
+
+- Issue: `#38`
+  Status: accepted
+  Reason: Minor polish improvement to player experience. More informative error messages reduce friction. Narrative fit LOW (gameplay message only), location fit N/A. Quick win.
+  Planned milestone: M3 - Polish
+  Implemented: Improved error messages for use lamp/key/coin with contextual hints about where items might be found.
+
+- Issue: `#39`
+  Status: deferred
+  Reason: "There is no idol here" is technically correct since idol is in Treasury. Ambiguity arises from thematic naming, but fix would be low-impact.
+  Planned milestone: M3 - Polish
+
+- Issue: `#40`
+  Status: deferred
+  Reason: "use key" is sufficient and consistent with game style. Explicit "use key on gate" would add complexity without clear player value.
+  Planned milestone: M3 - Polish
+
+- Issue: `#45`
+  Status: accepted
+  Reason: Minor consistency fix for error messaging. Improved "take" error messages to provide contextual hints.
+  Planned milestone: M3 - Polish
+  Implemented: Enhanced take error messages with hints (e.g., "You recall seeing a similar stone figure deeper within the ruins" for idol).
+
+- Issue: `#46`
+  Status: wontfix
+  Reason: Discovery mechanic is intentional game design - players must experiment. Adding explicit clues would reduce exploration reward.
+  Planned milestone: N/A
+
+- Issue: `#47`
+  Status: wontfix
+  Reason: Room description already states "A locked bronze gate blocks the northern tunnel" which informs the player of the lock requirement.
+  Planned milestone: N/A
+
+- Issue: `#52`
+  Status: wontfix
+  Reason: Inconsistent messages ("You do not have X" vs "You are not carrying X") are minor stylistic differences; both are clear. Would require broader message standardization effort.
+  Planned milestone: M3 - Polish
+
+- Issue: `#53`
+  Status: deferred
+  Reason: Minor inconsistency between "You see nothing useful" and hidden coin reveal. Not a gameplay blocker; could be addressed by revising cavern initial description.
+  Planned milestone: M3 - Polish
+
+- Issue: `#54`
+  Status: wontfix
+  Reason: Truncated text bug not reproducible at current commit 8ba5478. Pedestal reveal text is complete ("revealing a weathered tablet. Strange symbols cover its surface, hinting at a purpose beyond these ruins.").
+  Planned milestone: N/A
+
+- Issue: `#59`
+  Status: wontfix
+  Reason: Bronze gate lock state bug not reproducible at current commit. Gate correctly shows "stands open" after using key and remains accessible on return.
+  Planned milestone: N/A
+
+- Issue: `#60`
+  Status: wontfix
+  Reason: Same as #54 - truncated text bug not reproducible. Pedestal reveal is complete.
+  Planned milestone: N/A
+
+- Issue: `#61`
+  Status: wontfix
+  Reason: Same as #59 - gate lock state working correctly after using key.
+  Planned milestone: N/A
+
+- Issue: `#62`
+  Status: deferred
+  Reason: Duplicates #33 which is already accepted and implemented. Glyph examination is integrated with lamp/tablet mechanics.
+  Planned milestone: M2 - Puzzle Depth
+
+- Issue: `#63`
+  Status: deferred
+  Reason: Alternative lever mechanic is interesting but adds complexity. Current key-gate puzzle is clear and functional. Could be future expansion if needed.
+  Planned milestone: M4 - Alternative Paths
+
+- Issue: `#64`
+  Status: wontfix
+  Reason: Journal lore item is already implemented in Hidden Passage per #34. Journal provides builders' history and prophecy hints.
+  Planned milestone: N/A
+
+- Issue: `#65`
+  Status: deferred
+  Reason: Qualitative review at 3.83/5; notes good atmosphere and puzzles but suggests deeper lore and more branching. Same themes addressed by accepted issues. No new actionable items beyond prior scope.
+  Planned milestone: M4 - Content Expansion
+
+- Issue: `#66`
+  Status: wontfix
+  Reason: Same as #59/#61 - gate lock state working correctly at current commit. Bug not reproducible.
+  Planned milestone: N/A
+
+- Issue: `#67`
+  Status: wontfix
+  Reason: Same as #54/#60 - truncated text bug not reproducible. Pedestal reveal text is complete.
+  Planned milestone: N/A
+
+- Issue: `#68`
+  Status: wontfix
+  Reason: Inspect command already implemented. Parser maps "inspect" to "examine" action (line 57 of parser.py). Examine provides detailed room/item info.
+  Planned milestone: N/A

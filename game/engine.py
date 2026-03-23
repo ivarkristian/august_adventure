@@ -174,6 +174,12 @@ class GameEngine:
             return "Take what?"
         room = self.current_room()
         if item not in room.items:
+            if item == "idol" and self.state.location != "treasury":
+                return "You recall seeing a similar stone figure deeper within the ruins."
+            if item == "tablet" and self.state.location == "treasury":
+                return "The tablet is hidden within a compartment. Perhaps something could reveal it."
+            if item == "journal" and self.state.location == "hidden_passage":
+                return "The journal lies open on a shelf. Perhaps you should examine it."
             return f"There is no {item} here."
         room.items.remove(item)
         self.state.inventory.append(item)
@@ -194,7 +200,13 @@ class GameEngine:
         if not item:
             return "Use what?"
         if item not in self.state.inventory:
-            return f"You do not have {item}."
+            if item == "lamp":
+                return "You need a lamp to do that. Perhaps one lies nearby in the ruins."
+            if item == "key":
+                return "You need a key to do that. Perhaps it lies within the ruins."
+            if item == "coin":
+                return "You do not have a coin. Perhaps something waits to be discovered."
+            return f"You do not have {item}. Check your inventory with 'i'."
 
         if item == "lamp" and self.state.location == "cavern":
             if not self.state.flags.get("coin_revealed"):
