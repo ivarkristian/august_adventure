@@ -744,8 +744,59 @@ Rules:
 - Propose additive narrative and puzzle ideas (not critique only).
 - Narrative role must include an overarching story-arc assessment after location-level notes.
 - Role notes should be concise and actionable so they can be persisted as text files.
-""".strip()
+    """.strip()
     return prompt
+
+
+def consultant_review_has_substance(review: dict[str, Any]) -> bool:
+    text_fields = [
+        "overall_thoughts",
+        "location_assessment",
+        "quests_challenges_assessment",
+        "agency_assessment",
+        "story_arc_assessment",
+    ]
+    for field in text_fields:
+        if str(review.get(field, "")).strip():
+            return True
+
+    list_fields = ["top_strengths", "top_improvements", "narrative_additions", "puzzle_additions"]
+    for field in list_fields:
+        values = review.get(field, [])
+        if isinstance(values, list) and any(str(v).strip() and str(v).strip().lower() != "none" for v in values):
+            return True
+
+    role_notes = review.get("role_notes", {})
+    if isinstance(role_notes, dict):
+        for key in ["qa", "narrative", "puzzle", "agency"]:
+            notes = role_notes.get(key, [])
+            if isinstance(notes, list) and any(str(v).strip() for v in notes):
+                return True
+
+    dim_scores = review.get("dimension_scores", [])
+    if isinstance(dim_scores, list):
+        for item in dim_scores:
+            if not isinstance(item, dict):
+                continue
+            why = str(item.get("why", "")).strip()
+            if why and why.lower() != "no clear assessment provided.":
+                return True
+
+    return False
+
+
+def build_consultant_session_key(prefix: str, commit_sha: str, attempt_index: int) -> str:
+    clean_prefix = prefix.strip() if prefix.strip() else "cli:august-playtest"
+    nonce = f"{int(time.time())}-{time.time_ns() % 1_000_000:06d}-{attempt_index}"
+    return f"{clean_prefix}:{commit_sha[:12]}:{nonce}"
+
+
+def run_picoclaw_consultant(message: str, session_key: str, model: str) -> CmdResult:
+    cmd = ["picoclaw", "agent", "--session", session_key]
+    if model:
+        cmd.extend(["--model", model])
+    cmd.extend(["-m", message])
+    return run_cmd(cmd, timeout=420)
 
 
 def ask_august_consultant(
@@ -851,13 +902,23 @@ Limits:
 """.strip()
     attempts.append(concise_prompt)
 
-    for attempt in attempts:
-        result = run_cmd(["picoclaw", "agent", "-m", attempt], timeout=420)
+    model_override = os.getenv("AUGUST_PICOCLAW_MODEL", "").strip()
+    session_prefix = os.getenv("AUGUST_PICOCLAW_SESSION_PREFIX", "cli:august-playtest")
+
+    for idx, attempt in enumerate(attempts, start=1):
+        session_key = build_consultant_session_key(session_prefix, commit_sha, idx)
+        result = run_picoclaw_consultant(attempt, session_key, model_override)
         text = "\n".join(part for part in [result.out, result.err] if part)
         parsed = parse_json_object(text)
         pack = normalize_suggestions(parsed, max_bugs, max_features)
         if is_meaningful(pack):
             return pack
+
+        reason = clean_line((result.err or result.out or "no output"), 220)
+        print(
+            f"consultant-attempt-{idx} non-meaningful "
+            f"(rc={result.code}, session={session_key}): {reason}"
+        )
 
     return normalize_suggestions({}, max_bugs, max_features)
 
@@ -1350,6 +1411,11 @@ def main() -> int:
         max_features,
     )
 
+    review_meaningful = consultant_review_has_substance(review_pack["overall_review"])
+    runner_notes: list[str] = []
+    if not review_meaningful:
+        runner_notes.append("Consultant output was minimal; qualitative review issue suppressed.")
+
     gh = GitHubClient(repo)
     open_titles = list_open_issue_titles(gh)
     opened_urls: list[str] = []
@@ -1362,7 +1428,8 @@ def main() -> int:
             issues.append(build_bug_issue(sha, bug, test_results))
         for feature in review_pack["features"]:
             issues.append(build_feature_issue(sha, feature, test_results))
-        issues.append(build_overall_review_issue(sha, review_pack["overall_review"], test_results))
+        if review_meaningful:
+            issues.append(build_overall_review_issue(sha, review_pack["overall_review"], test_results))
 
         for issue in issues:
             if issue.title in open_titles:
@@ -1400,6 +1467,8 @@ def main() -> int:
     )
     if github_errors:
         summary += "\nGitHub errors:\n- " + "\n- ".join(clean_line(x, 240) for x in github_errors[:5])
+    if runner_notes:
+        summary += "\nRunner notes:\n- " + "\n- ".join(clean_line(x, 240) for x in runner_notes[:5])
     print(summary)
 
     state.update(
