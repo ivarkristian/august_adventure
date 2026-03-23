@@ -158,3 +158,8 @@ Track triage outcomes for August-originated feedback.
   Status: deferred
   Reason: Consolidated review at commit 4fadb1164eac (3.33/5); same findings as #27/#26. No new actionable items beyond prior accepted issues. Game is functionally complete for M2 scope.
   Planned milestone: M2 - Puzzle Depth
+
+- Issue: `#29`
+  Status: deferred
+  Reason: Consolidated review at current commit cd17278cc9 (3.33/5); same findings as #28/#27. No new actionable items beyond prior accepted issues (#18 idol purpose, #19 water echoes, #22 lamp inscriptions). Game is functionally complete for M2 scope.
+  Planned milestone: M2 - Puzzle Depth
