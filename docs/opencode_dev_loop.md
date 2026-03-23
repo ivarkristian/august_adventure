@@ -19,6 +19,31 @@ The scheduled agent is sandboxed so it can write only inside `august-adventure/`
    - run `pytest` and smoke playthrough,
    - commit and push to `main` only when tests pass.
 
+## GitHub Credential Isolation (Repo-Only)
+
+The loop uses a dedicated deploy key stored inside the repository sandbox:
+
+- `.opencode_sandbox/keys/august_adventure_deploy_key`
+
+Requirements:
+
+1. Add the corresponding public key as a **Deploy Key with write access** on:
+   - `ivarkristian/august_adventure`
+2. Do not add this key to any other repository.
+
+Helper command to create/show the key:
+
+```bash
+bash ops/opencode/ensure_deploy_key.sh
+```
+
+Runtime hardening:
+
+- `SSH_AUTH_SOCK` is unset.
+- `GIT_SSH_COMMAND` uses `-F /dev/null` and forces `IdentitiesOnly=yes` with only that deploy key.
+- `origin` fetch/push URL must exactly match `git@github.com:ivarkristian/august_adventure.git`.
+- Additional push remotes are blocked.
+
 ## Install Hourly Schedule (macOS launchd)
 
 From repo root:
