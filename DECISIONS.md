@@ -130,5 +130,17 @@ Track triage outcomes for August-originated feedback.
 
 - Issue: `#24`
   Status: deferred
-  Reason: Latest consolidated review at commit ca5025da34f2 (same commit as #22); Narrative fit HIGH (same lore-expansion themes), Location fit HIGH (same Foyer/Cavern/Treasury). Findings are already tracked in accepted issues: lamp reveals water echoes (#19) and idol consistency (#11/#18) addressed in ca5025d. Superseded by #22 as primary reference.
+  Reason: Same findings as #22; superseded by #25 as primary reference.
   Planned milestone: M2 - Puzzle Depth
+
+- Issue: `#25`
+  Status: accepted
+  Reason: Latest consolidated review at current commit 5adceaa3 (3.33/5). Narrative fit HIGH, Location fit HIGH. Confirms prior improvements working (lamp inscriptions, water echoes, idol pedestal, tablet verses). Remaining: idol description persistence after placement. Fixed: Treasury now renders contextual description (idol in shadows vs. rests upon pedestal).
+  Planned milestone: M2 - Puzzle Depth
+  Implemented: Treasury look() now generates contextual room description based on idol_placed flag; "ancient idol watches from the shadows" only shown when idol is still in room items; "idol rests upon the pedestal" shown after placement.
+
+- Issue: `#21`
+  Status: deferred
+  Reason: Same consolidated findings as #20/#25; superseded by #25 as primary reference.
+  Planned milestone: M2 - Puzzle Depth
+

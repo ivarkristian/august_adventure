@@ -70,23 +70,54 @@ class GameEngine:
 
     def look(self) -> str:
         room = self.current_room()
-        lines = [room.name, room.description]
+        lines = [room.name]
 
-        if self.state.location == "cavern":
+        if self.state.location == "treasury":
+            if self.state.flags.get("idol_placed"):
+                lines.append(
+                    "A hidden vault glitters in low amber light. "
+                    "An ancient idol rests upon the pedestal, its features worn smooth by ages, "
+                    "and a hidden alcove gleams with forgotten verses. "
+                    "The only open passage leads south."
+                )
+            elif "idol" in room.items:
+                lines.append(
+                    "A hidden vault glitters in low amber light. "
+                    "A carved pedestal with a coin-sized slot rests near the center, "
+                    "and an ancient idol watches from the shadows, eyes that seem to follow you. "
+                    "The only open passage leads south."
+                )
+            else:
+                lines.append(
+                    "A hidden vault glitters in low amber light. "
+                    "A carved pedestal with a coin-sized slot rests near the center. "
+                    "The only open passage leads south."
+                )
+            if not self.state.flags.get("coin_offered"):
+                lines.append("The pedestal slot looks exactly coin-sized.")
+            if room.items and not self.state.flags.get("idol_placed"):
+                lines.append("You see: " + ", ".join(sorted(room.items)) + ".")
+            elif self.state.flags.get("idol_placed") and room.items:
+                lines.append("You see: " + ", ".join(sorted(room.items)) + ".")
+        elif self.state.location == "cavern":
+            lines.append(
+                "A black-stone cavern swallows the light, each drip echoing like a distant clock. "
+                "A bronze gate seals the northern tunnel while the western passage returns to the foyer."
+            )
             if self.state.flags.get("cavern_north_unlocked"):
                 lines.append("The bronze gate to the north stands open.")
             else:
                 lines.append("A locked bronze gate blocks the northern tunnel.")
-
-        if self.state.location == "treasury" and not self.state.flags.get("coin_offered"):
-            lines.append("The pedestal slot looks exactly coin-sized.")
-
-        if self.state.location == "treasury" and self.state.flags.get("idol_placed"):
-            lines.append("The idol rests upon the pedestal, and a hidden alcove gleams with ancient verses.")
-        elif room.items:
-            lines.append("You see: " + ", ".join(sorted(room.items)) + ".")
+            if room.items:
+                lines.append("You see: " + ", ".join(sorted(room.items)) + ".")
+            else:
+                lines.append("You see nothing useful.")
         else:
-            lines.append("You see nothing useful.")
+            lines.append(room.description)
+            if room.items:
+                lines.append("You see: " + ", ".join(sorted(room.items)) + ".")
+            else:
+                lines.append("You see nothing useful.")
 
         lines.append("Exits: " + ", ".join(sorted(room.exits.keys())) + ".")
 
