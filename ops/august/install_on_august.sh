@@ -1,14 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_DIR="${AUGUST_REPO_DIR:-$HOME/august_adventure}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_DIR="${AUGUST_REPO_DIR:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
+REPO_URL="${AUGUST_REPO_URL:-}"
 ENV_FILE="$HOME/.config/august-playtest.env"
 UNIT_DIR="$HOME/.config/systemd/user"
 
 mkdir -p "$UNIT_DIR" "$HOME/.config"
 
 if [ ! -d "$REPO_DIR/.git" ]; then
-  git clone "https://github.com/ivarkristian/august_adventure.git" "$REPO_DIR"
+  if [ -z "$REPO_URL" ]; then
+    echo "Set AUGUST_REPO_URL before first install when repo checkout is missing." >&2
+    exit 1
+  fi
+  git clone "$REPO_URL" "$REPO_DIR"
 else
   git -C "$REPO_DIR" fetch origin
   git -C "$REPO_DIR" checkout main

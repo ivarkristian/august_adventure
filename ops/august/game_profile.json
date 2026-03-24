@@ -1,0 +1,80 @@
+{
+  "game_name": "August Adventure",
+  "short_description": "A classic-style text adventure focused on exploration, puzzle-solving, atmospheric discovery, and coherent item interactions.",
+  "allowed_actions": [
+    "look / l",
+    "go <direction> (or type direction directly)",
+    "take <item>",
+    "drop <item>",
+    "use <item>",
+    "inventory / i",
+    "save [path]",
+    "load [path]",
+    "help",
+    "quit"
+  ],
+  "exploratory_scenarios": [
+    {
+      "name": "curious_explorer",
+      "seed": 11,
+      "commands": [
+        "look",
+        "take lamp",
+        "north",
+        "look",
+        "east",
+        "look",
+        "use lamp",
+        "look",
+        "north",
+        "look",
+        "quit"
+      ]
+    },
+    {
+      "name": "puzzle_solver",
+      "seed": 13,
+      "commands": [
+        "take lamp",
+        "north",
+        "take key",
+        "east",
+        "use lamp",
+        "take coin",
+        "north",
+        "take idol",
+        "inventory",
+        "quit"
+      ]
+    },
+    {
+      "name": "skeptical_breaker",
+      "seed": 17,
+      "commands": [
+        "drop lamp",
+        "use lamp",
+        "north",
+        "east",
+        "north",
+        "save /tmp/august_save.json",
+        "load /tmp/missing.json",
+        "help",
+        "quit"
+      ]
+    }
+  ],
+  "gameplay_terms": [
+    "trailhead",
+    "foyer",
+    "cavern",
+    "treasury",
+    "lamp",
+    "key",
+    "coin",
+    "idol",
+    "tablet",
+    "glyph",
+    "pedestal",
+    "hidden passage"
+  ]
+}

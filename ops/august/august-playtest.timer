@@ -1,5 +1,5 @@
 [Unit]
-Description=Run August Adventure playtest automation periodically
+Description=Run game playtest automation periodically
 
 [Timer]
 OnBootSec=5m

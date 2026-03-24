@@ -80,6 +80,15 @@ class ContextCaps:
 
 
 @dataclass
+class GameProfile:
+    game_name: str
+    short_description: str
+    allowed_actions: list[str]
+    exploratory_scenarios: list[dict[str, Any]]
+    gameplay_terms: list[str]
+
+
+@dataclass
 class CmdResult:
     code: int
     out: str
@@ -119,10 +128,100 @@ def run_cmd_binary(command: list[str], input_bytes: bytes, timeout: int = 60) ->
 def ensure_repo(repo_dir: Path, repo_url: str) -> None:
     if (repo_dir / ".git").exists():
         return
+    if not repo_url.strip():
+        raise RuntimeError("AUGUST_REPO_URL is required when local repo checkout does not exist")
     repo_dir.parent.mkdir(parents=True, exist_ok=True)
     result = run_cmd(["git", "clone", repo_url, str(repo_dir)], timeout=600)
     if result.code != 0:
         raise RuntimeError(f"git clone failed: {result.err}")
+
+
+def parse_github_slug_from_remote(remote_url: str) -> str:
+    value = remote_url.strip()
+    patterns = [
+        re.compile(r"^https://github\.com/([^/]+)/([^/]+?)(?:\.git)?$", re.IGNORECASE),
+        re.compile(r"^git@github\.com:([^/]+)/([^/]+?)(?:\.git)?$", re.IGNORECASE),
+        re.compile(r"^ssh://git@github\.com/([^/]+)/([^/]+?)(?:\.git)?$", re.IGNORECASE),
+    ]
+    for pattern in patterns:
+        match = pattern.match(value)
+        if match:
+            return f"{match.group(1)}/{match.group(2)}"
+    return ""
+
+
+def detect_repo_slug(repo_dir: Path, explicit_slug: str) -> str:
+    if explicit_slug.strip():
+        return explicit_slug.strip()
+    origin = run_cmd(["git", "remote", "get-url", "origin"], cwd=repo_dir)
+    if origin.code != 0:
+        return ""
+    return parse_github_slug_from_remote(origin.out)
+
+
+def load_game_profile(repo_dir: Path) -> GameProfile:
+    profile_path = repo_dir / "ops" / "august" / "game_profile.json"
+    if not profile_path.exists():
+        raise RuntimeError(f"missing required game profile: {profile_path}")
+
+    try:
+        raw = json.loads(profile_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"invalid game profile JSON: {exc}") from exc
+
+    if not isinstance(raw, dict):
+        raise RuntimeError("invalid game profile: expected JSON object")
+
+    game_name = str(raw.get("game_name", "")).strip()
+    short_description = str(raw.get("short_description", "")).strip()
+    allowed_actions_raw = raw.get("allowed_actions", [])
+    scenarios_raw = raw.get("exploratory_scenarios", [])
+    gameplay_terms_raw = raw.get("gameplay_terms", [])
+
+    if not game_name:
+        raise RuntimeError("invalid game profile: game_name is required")
+    if not short_description:
+        raise RuntimeError("invalid game profile: short_description is required")
+    if not isinstance(allowed_actions_raw, list) or not allowed_actions_raw:
+        raise RuntimeError("invalid game profile: allowed_actions must be a non-empty list")
+    if not isinstance(scenarios_raw, list) or not scenarios_raw:
+        raise RuntimeError("invalid game profile: exploratory_scenarios must be a non-empty list")
+
+    allowed_actions = [clean_line(str(action), 120) for action in allowed_actions_raw if clean_line(str(action), 120)]
+    if not allowed_actions:
+        raise RuntimeError("invalid game profile: allowed_actions contains no usable entries")
+
+    scenarios: list[dict[str, Any]] = []
+    for idx, entry in enumerate(scenarios_raw):
+        if not isinstance(entry, dict):
+            raise RuntimeError(f"invalid game profile: exploratory_scenarios[{idx}] must be an object")
+        name = clean_line(str(entry.get("name", "")), 60)
+        seed = entry.get("seed")
+        commands_raw = entry.get("commands", [])
+        if not name:
+            raise RuntimeError(f"invalid game profile: exploratory_scenarios[{idx}].name is required")
+        try:
+            seed_int = int(str(seed))
+        except (TypeError, ValueError) as exc:
+            raise RuntimeError(f"invalid game profile: exploratory_scenarios[{idx}].seed must be int") from exc
+        if not isinstance(commands_raw, list) or not commands_raw:
+            raise RuntimeError(f"invalid game profile: exploratory_scenarios[{idx}].commands must be non-empty list")
+        commands = [clean_line(str(command), 160) for command in commands_raw if clean_line(str(command), 160)]
+        if not commands:
+            raise RuntimeError(f"invalid game profile: exploratory_scenarios[{idx}].commands has no usable entries")
+        scenarios.append({"name": name, "seed": seed_int, "commands": commands})
+
+    gameplay_terms: list[str] = []
+    if isinstance(gameplay_terms_raw, list):
+        gameplay_terms = [clean_line(str(term).lower(), 40) for term in gameplay_terms_raw if clean_line(str(term), 40)]
+
+    return GameProfile(
+        game_name=game_name,
+        short_description=short_description,
+        allowed_actions=allowed_actions,
+        exploratory_scenarios=scenarios,
+        gameplay_terms=gameplay_terms,
+    )
 
 
 def sync_repo(repo_dir: Path) -> str:
@@ -182,27 +281,17 @@ def run_tests(repo_dir: Path, python_bin: Path) -> dict[str, CmdResult]:
     }
 
 
-def run_exploratory_scenarios(repo_dir: Path, python_bin: Path) -> dict[str, str]:
-    scenarios = [
-        (
-            "curious_explorer",
-            11,
-            ["look", "take lamp", "north", "look", "east", "look", "use lamp", "look", "north", "look", "quit"],
-        ),
-        (
-            "puzzle_solver",
-            13,
-            ["take lamp", "north", "take key", "east", "use lamp", "take coin", "north", "take idol", "inventory", "quit"],
-        ),
-        (
-            "skeptical_breaker",
-            17,
-            ["drop lamp", "use lamp", "north", "east", "north", "save /tmp/august_save.json", "load /tmp/missing.json", "help", "quit"],
-        ),
-    ]
-
+def run_exploratory_scenarios(
+    repo_dir: Path,
+    python_bin: Path,
+    scenarios: list[dict[str, Any]],
+) -> dict[str, str]:
     results: dict[str, str] = {}
-    for name, seed, commands in scenarios:
+    for scenario in scenarios:
+        name = str(scenario.get("name", "scenario"))
+        seed = int(scenario.get("seed", 1))
+        commands_raw = scenario.get("commands", [])
+        commands = [str(cmd) for cmd in commands_raw] if isinstance(commands_raw, list) else []
         py = (
             "from game.playtest import run_playthrough\n"
             f"cmds={json.dumps(commands)}\n"
@@ -220,17 +309,27 @@ def run_exploratory_scenarios(repo_dir: Path, python_bin: Path) -> dict[str, str
 def load_world_from_source(repo_dir: Path) -> dict[str, Any]:
     if str(repo_dir) not in sys.path:
         sys.path.insert(0, str(repo_dir))
-    from game.world import build_world  # type: ignore
+    try:
+        from game.world import build_world  # type: ignore
+    except Exception:  # noqa: BLE001
+        return {}
+    try:
+        world = build_world()
+    except Exception:  # noqa: BLE001
+        return {}
+    return world if isinstance(world, dict) else {}
 
-    return build_world()
 
-
-def build_source_map_text(world: dict[str, Any]) -> str:
+def build_source_map_text(game_name: str, world: dict[str, Any]) -> str:
     lines = [
-        "August Adventure Source Map",
-        "(derived from game/world.py)",
+        f"{game_name} Source Map",
+        "(derived from available world source when supported)",
         "",
     ]
+
+    if not world:
+        lines.append("World source map unavailable for this game profile.")
+        return "\n".join(lines).rstrip() + "\n"
 
     for room_key in world:
         room = world[room_key]
@@ -275,7 +374,7 @@ def extract_room_sequence(transcript: str, room_names: set[str]) -> list[str]:
     return sequence
 
 
-def build_playthrough_map_text(exploratory: dict[str, str], world: dict[str, Any]) -> str:
+def build_playthrough_map_text(game_name: str, exploratory: dict[str, str], world: dict[str, Any]) -> str:
     room_names = {getattr(room, "name", key) for key, room in world.items()}
     visit_counts: dict[str, int] = {name: 0 for name in room_names}
     edge_counts: dict[tuple[str, str], int] = {}
@@ -291,7 +390,7 @@ def build_playthrough_map_text(exploratory: dict[str, str], world: dict[str, Any
             edge_counts[edge] = edge_counts.get(edge, 0) + 1
 
     lines = [
-        "August Adventure Playthrough Map",
+        f"{game_name} Playthrough Map",
         "(derived from exploratory run transcripts)",
         "",
         "Scenario room sequences:",
@@ -322,14 +421,13 @@ def build_playthrough_map_text(exploratory: dict[str, str], world: dict[str, Any
     return "\n".join(lines).rstrip() + "\n"
 
 
-def build_intro_text(commit_sha: str, review: dict[str, Any]) -> str:
+def build_intro_text(game_name: str, game_description: str, commit_sha: str, review: dict[str, Any]) -> str:
     strengths = review.get("top_strengths", [])
     strength_lines = "\n".join(f"- {x}" for x in strengths[:3]) if strengths else "- (none reported this run)"
     return (
-        "August Adventure - Introduction\n"
+        f"{game_name} - Introduction\n"
         "\n"
-        "August Adventure is a classic-style text adventure focused on exploration, puzzle-solving, "
-        "and coherent world interaction.\n"
+        f"{clean_line(game_description, 800)}\n"
         "\n"
         f"Current analyzed commit: {commit_sha[:12]}\n"
         f"Latest overall score (1-5): {review.get('overall_score', 0.0)}\n"
@@ -339,23 +437,14 @@ def build_intro_text(commit_sha: str, review: dict[str, Any]) -> str:
     )
 
 
-def build_rules_text(world: dict[str, Any], smoke_output: str) -> str:
+def build_rules_text(profile: GameProfile, world: dict[str, Any], smoke_output: str) -> str:
     lines = [
-        "August Adventure - Current Rules",
+        f"{profile.game_name} - Current Rules",
         "",
         "Primary player actions:",
-        "- look / l",
-        "- go <north|south|east|west> (or type direction directly)",
-        "- take <item>",
-        "- drop <item>",
-        "- use <item>",
-        "- inventory / i",
-        "- save [path]",
-        "- load [path]",
-        "- help",
-        "- quit",
+        *[f"- {action}" for action in profile.allowed_actions],
         "",
-        "Lock and key rules from source:",
+        "Rule hints from source:",
     ]
 
     found_lock = False
@@ -368,19 +457,21 @@ def build_rules_text(world: dict[str, Any], smoke_output: str) -> str:
         for direction, item in locks.items():
             lines.append(f"- {room_name} [{room_key}] direction {direction} requires {item}")
     if not found_lock:
-        lines.append("- none")
+        lines.append("- no lock metadata discovered from source")
 
     lines.extend(["", "Observed mechanics from smoke run:"])
-    if "hidden coin" in smoke_output.lower():
-        lines.append("- Using lamp in cavern can reveal a hidden coin.")
-    if "Taken: idol." in smoke_output:
-        lines.append("- Treasury currently contains an idol that can be collected.")
-    lines.append("- Save/load commands are available for persistence.")
+    interesting = re.compile(r"(taken:|you use|you unlock|you open|you discover|you find|you cannot|can't|locked|requires|carry:|inventory|save|load)", re.IGNORECASE)
+    highlights = compact_lines([line.strip() for line in smoke_output.splitlines() if interesting.search(line)], 8, 180)
+    if highlights:
+        lines.extend(f"- {line}" for line in highlights)
+    else:
+        lines.append("- no notable mechanics extracted from smoke run")
 
     return "\n".join(lines).rstrip() + "\n"
 
 
 def build_latest_brief_text(
+    game_name: str,
     repo: str,
     commit_sha: str,
     review: dict[str, Any],
@@ -405,7 +496,7 @@ def build_latest_brief_text(
     puzzle_lines = [f"- {clean_line(str(x), 160)}" for x in puzzle_additions[:5]] if puzzle_additions else ["- None"]
 
     lines = [
-        "August Adventure - Latest Playtest Brief",
+        f"{game_name} - Latest Playtest Brief",
         f"Repo: {repo}",
         f"Commit: {commit_sha[:12]}",
         f"Snapshot: {snapshot_id}",
@@ -479,6 +570,7 @@ def truncate_for_discord(text: str, limit: int = 1800) -> str:
 def generate_history_docs(
     repo: str,
     repo_dir: Path,
+    profile: GameProfile,
     commit_sha: str,
     review: dict[str, Any],
     test_results: dict[str, CmdResult],
@@ -507,10 +599,10 @@ def generate_history_docs(
     publisher_notes = role_notes.get("publisher", []) if isinstance(role_notes.get("publisher"), list) else []
 
     docs: dict[str, str] = {
-        "game_intro.txt": build_intro_text(commit_sha, review),
-        "current_rules.txt": build_rules_text(world, test_results["smoke"].out),
-        "source_map.txt": build_source_map_text(world),
-        "playthrough_map.txt": build_playthrough_map_text(exploratory, world),
+        "game_intro.txt": build_intro_text(profile.game_name, profile.short_description, commit_sha, review),
+        "current_rules.txt": build_rules_text(profile, world, test_results["smoke"].out),
+        "source_map.txt": build_source_map_text(profile.game_name, world),
+        "playthrough_map.txt": build_playthrough_map_text(profile.game_name, exploratory, world),
         "story_arc_notes.txt": build_story_arc_notes_text(review),
         "role_notes_qa.txt": build_role_notes_text("Role Notes - QA Bug Hunter", qa_notes),
         "role_notes_narrative.txt": build_role_notes_text("Role Notes - Narrative Designer", narrative_notes),
@@ -518,7 +610,14 @@ def generate_history_docs(
         "role_notes_agency.txt": build_role_notes_text("Role Notes - Player Agency Advocate", agency_notes),
         "role_notes_publisher.txt": build_role_notes_text("Role Notes - Experienced Game Publisher", publisher_notes),
     }
-    docs["latest_playtest_brief.txt"] = build_latest_brief_text(repo, commit_sha, review, test_results, snapshot_id)
+    docs["latest_playtest_brief.txt"] = build_latest_brief_text(
+        profile.game_name,
+        repo,
+        commit_sha,
+        review,
+        test_results,
+        snapshot_id,
+    )
 
     for name, content in docs.items():
         (current_dir / name).write_text(content, encoding="utf-8")
@@ -594,7 +693,7 @@ def extract_markdown_section(text: str, heading: str) -> str:
     return match.group(1).strip()
 
 
-def build_game_description_text(world: dict[str, Any], limit: int = 900) -> str:
+def build_game_description_text(profile: GameProfile, world: dict[str, Any], limit: int = 900) -> str:
     room_names = [str(getattr(room, "name", key)) for key, room in world.items()]
     lock_lines: list[str] = []
     for room_key, room in world.items():
@@ -608,8 +707,7 @@ def build_game_description_text(world: dict[str, Any], limit: int = 900) -> str:
     room_summary = ", ".join(room_names[:8]) if room_names else "unknown rooms"
     lock_summary = "; ".join(lock_lines[:6]) if lock_lines else "no explicit directional locks"
     text = (
-        "August Adventure is a compact text adventure focused on exploration, room identity, puzzle chaining, "
-        "and coherent item interactions. "
+        f"{clean_line(profile.short_description, 700)} "
         f"Known locations in this build: {room_summary}. "
         f"Current gating observed from source: {lock_summary}. "
         "The intended feel is atmospheric, fair, and rewarding for players who experiment with commands and items."
@@ -624,7 +722,7 @@ def build_scenario_context_lines(name: str, transcript: str) -> list[str]:
 
     key_pattern = re.compile(
         r"(taken:|you use|you unlock|you open|you discover|you find|you cannot|can't|locked|requires|"
-        r"idol|tablet|glyph|coin|lamp|gate|save|load|error)",
+        r"inventory|save|load|error|puzzle|hint|hidden|passage|door|gate)",
         re.IGNORECASE,
     )
 
@@ -636,9 +734,9 @@ def build_scenario_context_lines(name: str, transcript: str) -> list[str]:
     return [f"{name}: {line}" for line in compact]
 
 
-def build_exploratory_summary_text(exploratory: dict[str, str], limit: int) -> str:
+def build_exploratory_summary_text(exploratory: dict[str, str], scenario_order: list[str], limit: int) -> str:
     all_lines: list[str] = []
-    for scenario_name in ["curious_explorer", "puzzle_solver", "skeptical_breaker"]:
+    for scenario_name in scenario_order:
         if scenario_name in exploratory:
             all_lines.extend(build_scenario_context_lines(scenario_name, exploratory[scenario_name]))
     summary = "\n".join(f"- {line}" for line in compact_lines(all_lines, limit_items=36, limit_chars=220))
@@ -647,10 +745,10 @@ def build_exploratory_summary_text(exploratory: dict[str, str], limit: int) -> s
     return summary[:limit]
 
 
-def build_exploratory_excerpt_text(exploratory: dict[str, str], limit: int) -> str:
+def build_exploratory_excerpt_text(exploratory: dict[str, str], scenario_order: list[str], limit: int) -> str:
     chunks: list[str] = []
     per_scenario = max(220, limit // max(1, len(exploratory)))
-    for name in ["puzzle_solver", "curious_explorer", "skeptical_breaker"]:
+    for name in scenario_order:
         text = exploratory.get(name, "")
         if not text:
             continue
@@ -713,7 +811,7 @@ def dedupe_feature_title(title: str) -> str:
     return re.sub(r"\s+", " ", title.strip().lower())
 
 
-def is_concrete_gameplay_feature(feature: dict[str, Any]) -> bool:
+def is_concrete_gameplay_feature(feature: dict[str, Any], gameplay_terms: list[str]) -> bool:
     text = f"{feature.get('title', '')} {feature.get('proposal', '')}".lower()
     concrete_keywords = [
         "room",
@@ -723,15 +821,8 @@ def is_concrete_gameplay_feature(feature: dict[str, Any]) -> bool:
         "inventory",
         "command",
         "interaction",
-        "trailhead",
-        "foyer",
-        "cavern",
-        "treasury",
-        "lamp",
-        "coin",
-        "idol",
-        "tablet",
-        "glyph",
+        "player",
+        "world",
         "story",
         "lore",
     ]
@@ -747,7 +838,8 @@ def is_concrete_gameplay_feature(feature: dict[str, Any]) -> bool:
     ]
     if any(word in text for word in abstract_keywords):
         return False
-    return any(word in text for word in concrete_keywords)
+    dynamic_terms = [term for term in gameplay_terms if term and len(term) > 2]
+    return any(word in text for word in concrete_keywords + dynamic_terms)
 
 
 def parse_json_object(text: str) -> dict[str, Any]:
@@ -1184,6 +1276,7 @@ def merge_role_notes(role_packs: dict[str, dict[str, Any]]) -> dict[str, list[st
 
 def merge_role_consultant_packs(
     role_packs: dict[str, dict[str, Any]],
+    gameplay_terms: list[str],
     max_bugs: int,
     max_features: int,
 ) -> dict[str, Any]:
@@ -1233,7 +1326,7 @@ def merge_role_consultant_packs(
             if role == "publisher":
                 if not bool(feature.get("concrete_gameplay_change")):
                     continue
-                if not is_concrete_gameplay_feature(feature):
+                if not is_concrete_gameplay_feature(feature, gameplay_terms):
                     continue
             title_key = dedupe_feature_title(str(feature.get("title", "")))
             if not title_key or title_key in seen_features:
@@ -1252,6 +1345,7 @@ def ask_august_consultant(
     commit_sha: str,
     test_results: dict[str, CmdResult],
     exploratory: dict[str, str],
+    profile: GameProfile,
     world: dict[str, Any],
     rubric_text: str,
     roles_text: str,
@@ -1262,9 +1356,19 @@ def ask_august_consultant(
     session_prefix = os.getenv("AUGUST_PICOCLAW_SESSION_PREFIX", "cli:august-playtest")
     context_budget = env_positive_int("AUGUST_CONTEXT_CHAR_BUDGET", 14000)
 
-    game_description_raw = build_game_description_text(world, limit=1200)
-    rules_raw = build_rules_text(world, test_results["smoke"].out)
-    exploratory_summary_raw = build_exploratory_summary_text(exploratory, limit=6000)
+    scenario_order = [str(item.get("name", "")) for item in profile.exploratory_scenarios if str(item.get("name", ""))]
+    game_description_raw = build_game_description_text(profile, world, limit=1200)
+    rules_raw = build_rules_text(profile, world, test_results["smoke"].out)
+    exploratory_summary_raw = build_exploratory_summary_text(exploratory, scenario_order, limit=6000)
+
+    gameplay_terms = compact_lines(
+        profile.gameplay_terms
+        + [profile.game_name]
+        + profile.allowed_actions
+        + re.findall(r"[a-zA-Z][a-zA-Z0-9_\-]{2,}", profile.short_description.lower()),
+        80,
+        30,
+    )
 
     role_max_bugs_map = {
         "qa": max_bugs,
@@ -1301,7 +1405,7 @@ def ask_august_consultant(
                 rules_text=rules_raw[: caps.rules],
                 smoke_excerpt=(test_results["smoke"].out + "\n" + test_results["smoke"].err)[: caps.smoke],
                 exploratory_summary=exploratory_summary_raw[: caps.transcript_summary],
-                exploratory_excerpt=build_exploratory_excerpt_text(exploratory, caps.transcript_excerpt),
+                exploratory_excerpt=build_exploratory_excerpt_text(exploratory, scenario_order, caps.transcript_excerpt),
                 role_max_bugs=role_max_bugs_map[role_key],
                 role_max_features=role_max_features_map[role_key],
             )
@@ -1327,7 +1431,12 @@ def ask_august_consultant(
             runner_notes.append(f"role={role_key} exhausted compression tiers; using empty fallback output")
         role_packs[role_key] = role_pack
 
-    merged = merge_role_consultant_packs(role_packs, max_bugs=max_bugs, max_features=max_features)
+    merged = merge_role_consultant_packs(
+        role_packs,
+        gameplay_terms=gameplay_terms,
+        max_bugs=max_bugs,
+        max_features=max_features,
+    )
     return merged, runner_notes
 
 
@@ -1580,7 +1689,8 @@ def list_pinned_discord_messages(token: str, channel_id: str) -> list[dict[str, 
 
 def is_august_brief_message(message: dict[str, Any]) -> bool:
     content = str(message.get("content", ""))
-    if not content.startswith("August Adventure - Latest Playtest Brief"):
+    first_line = content.splitlines()[0].strip() if content.strip() else ""
+    if not re.match(r"^.+ - Latest Playtest Brief$", first_line):
         return False
     author = message.get("author")
     return isinstance(author, dict) and bool(author.get("bot"))
@@ -1778,22 +1888,40 @@ def format_summary(
 
 
 def main() -> int:
-    repo = os.getenv("AUGUST_GITHUB_REPO", "ivarkristian/august_adventure")
-    repo_url = os.getenv("AUGUST_REPO_URL", f"https://github.com/{repo}.git")
-    repo_dir = Path(os.getenv("AUGUST_REPO_DIR", str(Path.home() / "august_adventure")))
+    repo_slug_env = os.getenv("AUGUST_GITHUB_REPO", "").strip()
+    repo_url_env = os.getenv("AUGUST_REPO_URL", "").strip()
+    default_repo_dir = Path(__file__).resolve().parents[2]
+    repo_dir_raw = os.getenv("AUGUST_REPO_DIR", "").strip()
+    repo_dir = Path(repo_dir_raw).expanduser() if repo_dir_raw else default_repo_dir
     state_path = Path.home() / ".picoclaw" / "workspace" / "august-playtest" / "state.json"
     force = os.getenv("AUGUST_FORCE", "0") == "1"
     max_bugs = env_positive_int("AUGUST_MAX_BUGS", DEFAULT_MAX_BUGS)
     max_features = env_positive_int("AUGUST_MAX_FEATURES", DEFAULT_MAX_FEATURES)
 
+    if not repo_url_env and repo_slug_env:
+        repo_url_env = f"https://github.com/{repo_slug_env}.git"
+
     state = load_state(state_path)
 
     try:
-        ensure_repo(repo_dir, repo_url)
+        ensure_repo(repo_dir, repo_url_env)
         sha = sync_repo(repo_dir)
     except Exception as exc:  # noqa: BLE001
         print(f"sync failed: {exc}")
         return 1
+
+    repo = detect_repo_slug(repo_dir, repo_slug_env)
+    if not repo:
+        print("sync failed: unable to determine GitHub repo slug; set AUGUST_GITHUB_REPO")
+        return 1
+
+    try:
+        profile = load_game_profile(repo_dir)
+    except Exception as exc:  # noqa: BLE001
+        print(f"profile load failed: {exc}")
+        return 1
+
+    world = load_world_from_source(repo_dir)
 
     if not force and state.get("last_tested_sha") == sha:
         print("no-new-commit")
@@ -1802,18 +1930,18 @@ def main() -> int:
     try:
         python_bin = ensure_venv(repo_dir)
         test_results = run_tests(repo_dir, python_bin)
-        exploratory = run_exploratory_scenarios(repo_dir, python_bin)
+        exploratory = run_exploratory_scenarios(repo_dir, python_bin, profile.exploratory_scenarios)
     except Exception as exc:  # noqa: BLE001
         print(f"test setup failed: {exc}")
         return 1
 
     rubric_text = load_text_file(repo_dir / "docs" / "playtest_rubric.md")
     roles_text = load_text_file(repo_dir / "ops" / "august" / "consultant_roles.md")
-    world = load_world_from_source(repo_dir)
     review_pack, runner_notes = ask_august_consultant(
         sha,
         test_results,
         exploratory,
+        profile,
         world,
         rubric_text,
         roles_text,
@@ -1856,6 +1984,7 @@ def main() -> int:
     docs_meta = generate_history_docs(
         repo=repo,
         repo_dir=repo_dir,
+        profile=profile,
         commit_sha=sha,
         review=review_pack["overall_review"],
         test_results=test_results,

@@ -6,7 +6,7 @@ This runbook describes the August automation workflow for monitoring and testing
 
 `ops/august/runner.py` performs this loop:
 
-1. Pull latest `origin/main` from `ivarkristian/august_adventure`.
+1. Pull latest `origin/main` from the configured repository.
 2. Skip if commit SHA was already tested.
 3. Create/update local venv and install project.
 4. Run:
@@ -38,6 +38,12 @@ This runbook describes the August automation workflow for monitoring and testing
     - `current/latest_playtest_brief.txt`
    - snapshots in `history_docs/snapshots/<timestamp>_<commit>/`
 10. Pin the latest playtest brief in Discord.
+
+The runner requires a game descriptor at:
+
+- `ops/august/game_profile.json`
+
+This profile defines game description, allowed actions, exploratory scenarios, and gameplay terminology.
 
 ## Required Credentials
 
@@ -72,6 +78,12 @@ nano <path-to-local-august-playtest-env>
 ```
 
 Set app credentials (recommended) or fallback PAT.
+
+Ensure these are set for the target game repository:
+
+- `AUGUST_GITHUB_REPO`
+- `AUGUST_REPO_URL`
+- `AUGUST_REPO_DIR`
 
 If using app auth, verify key permissions:
 

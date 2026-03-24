@@ -1,9 +1,9 @@
 [Unit]
-Description=August Adventure autonomous playtest runner
+Description=Autonomous game playtest runner
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=oneshot
 EnvironmentFile=%h/.config/august-playtest.env
-ExecStart=/usr/bin/python3 %h/august_adventure/ops/august/runner.py
+ExecStart=/usr/bin/bash -lc '/usr/bin/python3 "${AUGUST_REPO_DIR}/ops/august/runner.py"'
