@@ -89,6 +89,13 @@ class GameProfile:
 
 
 @dataclass
+class ConsultantDiagnostics:
+    role_success: dict[str, bool]
+    substantive_roles: int
+    attempt_records: list[dict[str, Any]]
+
+
+@dataclass
 class CmdResult:
     code: int
     out: str
@@ -802,6 +809,34 @@ def summarize_consultant_failure(result: CmdResult, parsed: dict[str, Any]) -> s
     return clean_line((result.err or result.out or "no output"), 180)
 
 
+def sanitize_agent_output(text: str, limit: int = 1200) -> str:
+    cleaned = re.sub(r"\x1B\[[0-?]*[ -/]*[@-~]", "", text)
+    lines: list[str] = []
+    for raw in cleaned.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if "████" in line:
+            continue
+        lines.append(line)
+    payload = "\n".join(lines)
+    return payload[:limit]
+
+
+def summarize_candidate_pack(pack: dict[str, Any]) -> dict[str, Any]:
+    review = pack.get("overall_review", {}) if isinstance(pack, dict) else {}
+    overall = str(review.get("overall_thoughts", "")).strip() if isinstance(review, dict) else ""
+    return {
+        "overall_thoughts_len": len(overall),
+        "top_strengths": len(review.get("top_strengths", [])) if isinstance(review, dict) and isinstance(review.get("top_strengths", []), list) else 0,
+        "top_improvements": len(review.get("top_improvements", [])) if isinstance(review, dict) and isinstance(review.get("top_improvements", []), list) else 0,
+        "narrative_additions": len(review.get("narrative_additions", [])) if isinstance(review, dict) and isinstance(review.get("narrative_additions", []), list) else 0,
+        "puzzle_additions": len(review.get("puzzle_additions", [])) if isinstance(review, dict) and isinstance(review.get("puzzle_additions", []), list) else 0,
+        "bugs": len(pack.get("bugs", [])) if isinstance(pack.get("bugs", []), list) else 0,
+        "features": len(pack.get("features", [])) if isinstance(pack.get("features", []), list) else 0,
+    }
+
+
 def has_meaningful_dimension_why(entry: dict[str, Any]) -> bool:
     why = str(entry.get("why", "")).strip().lower()
     return bool(why and why != "no clear assessment provided.")
@@ -1351,7 +1386,7 @@ def ask_august_consultant(
     roles_text: str,
     max_bugs: int,
     max_features: int,
-) -> tuple[dict[str, Any], list[str]]:
+) -> tuple[dict[str, Any], list[str], ConsultantDiagnostics]:
     model_override = os.getenv("AUGUST_PICOCLAW_MODEL", "").strip()
     session_prefix = os.getenv("AUGUST_PICOCLAW_SESSION_PREFIX", "cli:august-playtest")
     context_budget = env_positive_int("AUGUST_CONTEXT_CHAR_BUDGET", 14000)
@@ -1387,6 +1422,8 @@ def ask_august_consultant(
 
     role_packs: dict[str, dict[str, Any]] = {}
     runner_notes: list[str] = []
+    role_success: dict[str, bool] = {role: False for role in ROLE_ORDER}
+    attempt_records: list[dict[str, Any]] = []
 
     for role_key in ROLE_ORDER:
         role_pack = normalize_suggestions({}, max_bugs, max_features)
@@ -1415,21 +1452,44 @@ def ask_august_consultant(
             text = "\n".join(part for part in [result.out, result.err] if part)
             parsed = parse_json_object(text)
             candidate = normalize_suggestions(parsed, max_bugs, max_features)
+            meaningful = role_pack_is_meaningful(candidate)
 
-            if role_pack_is_meaningful(candidate):
+            parsed_keys = sorted(parsed.keys())[:10] if isinstance(parsed, dict) else []
+            reason = summarize_consultant_failure(result, parsed)
+            attempt_records.append(
+                {
+                    "role": role_key,
+                    "tier": tier,
+                    "session_key": session_key,
+                    "model": model_override or "default",
+                    "rc": result.code,
+                    "token_limited": is_token_limit_error(result),
+                    "prompt_chars": len(prompt),
+                    "parsed_keys": parsed_keys,
+                    "meaningful": meaningful,
+                    "reason": reason,
+                    "candidate_summary": summarize_candidate_pack(candidate),
+                    "stdout_excerpt": sanitize_agent_output(result.out, 1200),
+                    "stderr_excerpt": sanitize_agent_output(result.err, 1200),
+                }
+            )
+
+            if meaningful:
                 role_pack = candidate
                 role_succeeded = True
                 break
 
             token_limited = is_token_limit_error(result)
-            reason = summarize_consultant_failure(result, parsed)
             runner_notes.append(
                 f"role={role_key} tier={tier} non-meaningful rc={result.code} token_limited={token_limited} reason={reason}"
             )
 
         if not role_succeeded:
             runner_notes.append(f"role={role_key} exhausted compression tiers; using empty fallback output")
+        role_success[role_key] = role_succeeded
         role_packs[role_key] = role_pack
+
+    substantive_roles = sum(1 for ok in role_success.values() if ok)
 
     merged = merge_role_consultant_packs(
         role_packs,
@@ -1437,7 +1497,12 @@ def ask_august_consultant(
         max_bugs=max_bugs,
         max_features=max_features,
     )
-    return merged, runner_notes
+    diagnostics = ConsultantDiagnostics(
+        role_success=role_success,
+        substantive_roles=substantive_roles,
+        attempt_records=attempt_records,
+    )
+    return merged, runner_notes, diagnostics
 
 
 def format_iso_to_ts(iso_text: str) -> float:
@@ -1748,6 +1813,74 @@ def save_state(path: Path, data: dict[str, Any]) -> None:
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
+def write_debug_bundle(
+    commit_sha: str,
+    mode: str,
+    run_status: str,
+    role_success: dict[str, bool],
+    runner_notes: list[str],
+    attempt_records: list[dict[str, Any]],
+    review_pack: dict[str, Any],
+    test_results: dict[str, CmdResult],
+) -> str:
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    run_id = f"{timestamp}_{commit_sha[:12]}"
+    debug_root = Path.home() / ".picoclaw" / "workspace" / "august-playtest" / "debug"
+    bundle_dir = debug_root / run_id
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+
+    substantive_roles = sum(1 for ok in role_success.values() if ok)
+    manifest = {
+        "run_id": run_id,
+        "timestamp_utc": datetime.now(UTC).isoformat(),
+        "commit": commit_sha,
+        "mode": mode,
+        "run_status": run_status,
+        "substantive_roles": substantive_roles,
+        "role_success": role_success,
+        "pytest_exit": test_results["pytest"].code,
+        "smoke_exit": test_results["smoke"].code,
+    }
+    (bundle_dir / "run_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+
+    with (bundle_dir / "role_attempts.jsonl").open("w", encoding="utf-8") as f:
+        for record in attempt_records:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+
+    review = review_pack.get("overall_review", {}) if isinstance(review_pack, dict) else {}
+    review_dump = {
+        "overall_review": review,
+        "bugs_count": len(review_pack.get("bugs", [])) if isinstance(review_pack.get("bugs", []), list) else 0,
+        "features_count": len(review_pack.get("features", [])) if isinstance(review_pack.get("features", []), list) else 0,
+    }
+    (bundle_dir / "review_output.json").write_text(json.dumps(review_dump, indent=2) + "\n", encoding="utf-8")
+
+    summary_lines = [
+        "August Playtest Debug Bundle",
+        f"Run ID: {run_id}",
+        f"Commit: {commit_sha[:12]}",
+        f"Status: {run_status}",
+        f"Mode: {mode}",
+        f"Substantive roles: {substantive_roles}/{len(role_success)}",
+        "Role matrix:",
+        *[f"- {role}: {'ok' if role_success.get(role, False) else 'fail'}" for role in ROLE_ORDER],
+        "Runner notes:",
+    ]
+    if runner_notes:
+        summary_lines.extend(f"- {clean_line(note, 320)}" for note in runner_notes[:40])
+    else:
+        summary_lines.append("- none")
+    (bundle_dir / "summary.txt").write_text("\n".join(summary_lines).rstrip() + "\n", encoding="utf-8")
+
+    keep_runs = env_positive_int("AUGUST_DEBUG_KEEP_RUNS", 50)
+    entries = sorted([p for p in debug_root.iterdir() if p.is_dir()])
+    if len(entries) > keep_runs:
+        for old in entries[: len(entries) - keep_runs]:
+            run_cmd(["rm", "-rf", str(old)])
+
+    return str(bundle_dir)
+
+
 def format_score_table(scores: list[dict[str, Any]]) -> str:
     lines = ["| Dimension | Score | Why |", "|---|---:|---|"]
     name_map = {dim_id: label for dim_id, label in DIMENSIONS}
@@ -1897,6 +2030,7 @@ def main() -> int:
     force = os.getenv("AUGUST_FORCE", "0") == "1"
     max_bugs = env_positive_int("AUGUST_MAX_BUGS", DEFAULT_MAX_BUGS)
     max_features = env_positive_int("AUGUST_MAX_FEATURES", DEFAULT_MAX_FEATURES)
+    min_substantive_roles = env_positive_int("AUGUST_MIN_SUBSTANTIVE_ROLES", 2)
 
     if not repo_url_env and repo_slug_env:
         repo_url_env = f"https://github.com/{repo_slug_env}.git"
@@ -1937,7 +2071,7 @@ def main() -> int:
 
     rubric_text = load_text_file(repo_dir / "docs" / "playtest_rubric.md")
     roles_text = load_text_file(repo_dir / "ops" / "august" / "consultant_roles.md")
-    review_pack, runner_notes = ask_august_consultant(
+    review_pack, runner_notes, consultant_diag = ask_august_consultant(
         sha,
         test_results,
         exploratory,
@@ -1949,9 +2083,23 @@ def main() -> int:
         max_features,
     )
 
+    role_matrix = ", ".join(
+        f"{role}={'ok' if consultant_diag.role_success.get(role, False) else 'fail'}" for role in ROLE_ORDER
+    )
+    runner_notes.append(
+        f"role-matrix: {role_matrix} (substantive={consultant_diag.substantive_roles}/{len(ROLE_ORDER)})"
+    )
+
+    consultant_pipeline_ok = consultant_diag.substantive_roles >= min_substantive_roles
     review_meaningful = consultant_review_has_substance(review_pack["overall_review"])
     if not review_meaningful:
         runner_notes.append("Consultant output was minimal; qualitative review issue suppressed.")
+    if not consultant_pipeline_ok:
+        runner_notes.append(
+            "Consultant pipeline failed quality gate: "
+            f"{consultant_diag.substantive_roles}/{len(ROLE_ORDER)} substantive roles, "
+            f"minimum required is {min_substantive_roles}."
+        )
 
     gh = GitHubClient(repo)
     open_titles = list_open_issue_titles(gh)
@@ -1959,7 +2107,7 @@ def main() -> int:
     skipped_count = 0
     github_errors: list[str] = []
 
-    if gh.mode != "none":
+    if gh.mode != "none" and consultant_pipeline_ok:
         issues: list[GitHubIssue] = []
         for bug in review_pack["bugs"]:
             issues.append(build_bug_issue(sha, bug, test_results))
@@ -1980,6 +2128,8 @@ def main() -> int:
             if url:
                 opened_urls.append(url)
             open_titles.add(issue.title)
+    elif gh.mode != "none" and not consultant_pipeline_ok:
+        runner_notes.append("Skipped GitHub issue creation due to consultant pipeline failure.")
 
     docs_meta = generate_history_docs(
         repo=repo,
@@ -1997,17 +2147,37 @@ def main() -> int:
         prev_score = float(state["last_overall_score"])
 
     mode = gh.mode if not github_errors else f"{gh.mode}-with-errors"
+    failure_classes: list[str] = []
+    if not consultant_pipeline_ok:
+        failure_classes.append("consultant_pipeline_failure")
+    if github_errors:
+        failure_classes.append("publishing_failure")
+
+    run_status = "ok" if not failure_classes else "+".join(failure_classes)
+
+    debug_bundle_path = write_debug_bundle(
+        commit_sha=sha,
+        mode=mode,
+        run_status=run_status,
+        role_success=consultant_diag.role_success,
+        runner_notes=runner_notes,
+        attempt_records=consultant_diag.attempt_records,
+        review_pack=review_pack,
+        test_results=test_results,
+    )
+
     summary = format_summary(repo, sha, mode, test_results, review_pack["overall_review"], opened_urls, skipped_count, prev_score)
     summary += (
         "\nHistory docs:\n"
         f"- current: {docs_meta['docs_path']}\n"
         f"- snapshot: {docs_meta['snapshot_path']}\n"
-        f"- snapshot_id: {docs_meta['snapshot_id']}"
+        f"- snapshot_id: {docs_meta['snapshot_id']}\n"
+        f"- debug_bundle: {debug_bundle_path}"
     )
     if github_errors:
         summary += "\nGitHub errors:\n- " + "\n- ".join(clean_line(x, 240) for x in github_errors[:5])
     if runner_notes:
-        summary += "\nRunner notes:\n- " + "\n- ".join(clean_line(x, 240) for x in runner_notes[:5])
+        summary += "\nRunner notes:\n- " + "\n- ".join(clean_line(x, 240) for x in runner_notes[:20])
     print(summary)
 
     state.update(
@@ -2020,10 +2190,15 @@ def main() -> int:
             "last_snapshot_id": docs_meta["snapshot_id"],
             "last_docs_path": docs_meta["docs_path"],
             "last_snapshot_path": docs_meta["snapshot_path"],
+            "last_debug_bundle_path": debug_bundle_path,
+            "last_run_status": run_status,
+            "last_substantive_roles": consultant_diag.substantive_roles,
+            "last_role_matrix": consultant_diag.role_success,
         }
     )
 
     discord_token, owner_id = load_picoclaw_discord()
+    discord_errors: list[str] = []
     if discord_token:
         report_channel_id = ""
         try:
@@ -2033,8 +2208,20 @@ def main() -> int:
                 if summary_message_id:
                     state["last_summary_message_id"] = summary_message_id
                     state["last_report_channel_id"] = report_channel_id
-        except Exception:  # noqa: BLE001
-            pass
+        except Exception as exc:  # noqa: BLE001
+            discord_errors.append(f"summary send failed: {exc}")
+
+        if run_status != "ok" and report_channel_id:
+            short_status = (
+                f"August playtest pipeline degraded for `{repo}` at `{sha[:12]}`. "
+                f"Substantive roles: {consultant_diag.substantive_roles}/{len(ROLE_ORDER)} "
+                f"(minimum {min_substantive_roles}). "
+                f"Debug bundle: {debug_bundle_path}"
+            )
+            try:
+                send_discord_message(discord_token, report_channel_id, short_status)
+            except Exception as exc:  # noqa: BLE001
+                discord_errors.append(f"failure status send failed: {exc}")
 
         pin_channel_id = os.getenv("AUGUST_DISCORD_PIN_CHANNEL_ID", "").strip() or report_channel_id
         if pin_channel_id:
@@ -2082,8 +2269,23 @@ def main() -> int:
 
                     state["last_pinned_message_id"] = pin_message_id
                     state["last_pinned_channel_id"] = pin_channel_id
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception as exc:  # noqa: BLE001
+                discord_errors.append(f"pin update failed: {exc}")
+
+    if discord_errors:
+        runner_notes.extend(discord_errors[:5])
+        if "publishing_failure" not in failure_classes:
+            failure_classes.append("publishing_failure")
+        run_status = "+".join(failure_classes)
+        try:
+            (Path(debug_bundle_path) / "discord_errors.txt").write_text(
+                "\n".join(discord_errors).rstrip() + "\n",
+                encoding="utf-8",
+            )
+        except OSError:
+            pass
+
+    state["last_run_status"] = run_status
 
     save_state(state_path, state)
 

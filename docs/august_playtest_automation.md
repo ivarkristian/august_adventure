@@ -16,13 +16,14 @@ This runbook describes the August automation workflow for monitoring and testing
 6. Ask August for a structured assessment using role-split consultant passes:
     - `docs/playtest_rubric.md`
     - `ops/august/consultant_roles.md`
-   - roles: QA, Narrative, Puzzle, Agency, Publisher
-   - each role receives game output context (raw excerpt or compressed summary), game rules/actions, short game description, and role guidance
-   - payloads are capped by adaptive context budgets and retried with compressed packs on token-limit failures
+    - roles: QA, Narrative, Puzzle, Agency, Publisher
+    - each role receives game output context (raw excerpt or compressed summary), game rules/actions, short game description, and role guidance
+    - payloads are capped by adaptive context budgets and retried with compressed packs on token-limit failures
 7. Produce:
    - up to 3 bug issues,
    - up to 3 feature issues,
-   - 1 qualitative overall review issue.
+   - 1 qualitative overall review issue,
+   - only when at least `AUGUST_MIN_SUBSTANTIVE_ROLES` role outputs are substantive.
 8. DM a technical + qualitative summary to the owner via Discord.
 9. Write and maintain historical reference docs under `history_docs/`:
    - `current/game_intro.txt`
@@ -108,6 +109,8 @@ Optional consultant reliability controls:
 - `AUGUST_PICOCLAW_SESSION_PREFIX=cli:august-playtest`
 - `AUGUST_CONTEXT_CHAR_BUDGET=14000`
 - `AUGUST_RESET_PICOCLAW_MAIN_SESSION=1`
+- `AUGUST_MIN_SUBSTANTIVE_ROLES=2`
+- `AUGUST_DEBUG_KEEP_RUNS=50`
 
 If not set, runner pins the latest brief in the owner DM channel.
 
@@ -141,3 +144,5 @@ AUGUST_FORCE=1 systemctl --user start august-playtest.service
 - If report channel env is set, summaries are posted to that channel instead of DM.
 - Consultant output includes additive narrative/puzzle suggestions and overarching story-arc assessment.
 - Publisher-role suggestions are only opened as feature issues when they are concrete gameplay/content changes.
+- Pipeline/framework failures are not opened as GitHub issues; diagnostics are written locally under `~/.picoclaw/workspace/august-playtest/debug/`.
+- On pipeline failure, August posts a short Discord status message with the local debug bundle path.
