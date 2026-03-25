@@ -329,3 +329,38 @@ Track triage outcomes for August-originated feedback.
   Status: wontfix
   Reason: Inspect command already implemented. Parser maps "inspect" to "examine" action (line 57 of parser.py). Examine provides detailed room/item info.
   Planned milestone: N/A
+
+- Issue: `#55`
+  Status: deferred
+  Reason: Feature suggestion for lore expansion through readable items. Duplicate of lore already implemented (#34 journal, #50 altar inscription, #22 lamp reveals inscriptions). All readable items accessible via examine/use commands.
+  Planned milestone: M4 - Content Expansion
+
+- Issue: `#49`
+  Status: deferred
+  Reason: Feature suggestion for multi-stage Treasury puzzle. Current Treasury has two stages (coin pedestal -> tablet, idol placement -> alcove). Further expansion deferred to future milestone for scope control.
+  Planned milestone: M4 - Content Expansion
+
+- Issue: `#48`
+  Status: deferred
+  Reason: Feature suggestion for lore fragments and environmental storytelling. Duplicate of #34/#42. Journal, altar inscription, glyph examination already implemented. Water echoes motif developed throughout.
+  Planned milestone: M4 - Content Expansion
+
+- Issue: `#44`
+  Status: deferred
+  Reason: Qualitative review at 3.5/5 at commit ebb3d45ede5f. Notes solid foundation with functional puzzles but suggests more evocative descriptions. Same themes addressed by prior accepted issues. No new actionable items.
+  Planned milestone: M2 - Puzzle Depth
+
+- Issue: `#43`
+  Status: deferred
+  Reason: Feature suggestion for more interactive elements. Interactive elements already implemented: examine (glyphs, altar, journal, tablet, idol, pedestal), listen (reveals hidden passage), use (lamp/key/coin/idol interactions).
+  Planned milestone: M3 - Extended Items
+
+- Issue: `#42`
+  Status: deferred
+  Reason: Feature suggestion for optional narrative lore fragments. Duplicate of #34/#48. Journal, altar inscription, tablet verses all provide optional lore. Water echoes motif provides environmental storytelling.
+  Planned milestone: M4 - Content Expansion
+
+- Issue: `#41`
+  Status: deferred
+  Reason: Feature suggestion for expanded environmental descriptions with sensory details. Descriptions already rich with sensory language (dripping water, amber light, shifting glyphs, dust motes). Minor expansion deferred for scope control.
+  Planned milestone: M3 - Extended Items
