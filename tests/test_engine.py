@@ -188,3 +188,25 @@ def test_hidden_passage_journal() -> None:
 
     use_journal, _ = engine.step("use journal")
     assert "journal" in use_journal.lower() or "builders" in use_journal.lower()
+
+
+def test_ancient_alcove_exploration() -> None:
+    engine = GameEngine(seed=10)
+
+    engine.step("listen")
+    engine.step("east")
+    engine.step("east")
+
+    look_result, _ = engine.step("look")
+    assert "Ancient Alcove" in look_result
+    assert "altar" in look_result.lower()
+
+    examine_altar, _ = engine.step("examine altar")
+    assert "altar" in examine_altar.lower()
+    assert "watching" in examine_altar.lower() or "watches" in examine_altar.lower()
+    assert "river" in examine_altar.lower() or "water" in examine_altar.lower()
+    assert "truth" in examine_altar.lower() or "reveal" in examine_altar.lower()
+
+    listen_result, _ = engine.step("listen")
+    assert "water" in listen_result.lower()
+    assert "drip" in listen_result.lower()

@@ -124,6 +124,12 @@ class GameEngine:
                 lines.append("You see: " + ", ".join(sorted(room.items)) + ".")
             lines.append("Exits: " + ", ".join(sorted(room.exits.keys())) + ".")
             return "\n".join(lines)
+        elif self.state.location == "ancient_alcove":
+            lines.append(room.description)
+            if room.items:
+                lines.append("You see: " + ", ".join(sorted(room.items)) + ".")
+            lines.append("Exits: " + ", ".join(sorted(room.exits.keys())) + ".")
+            return "\n".join(lines)
         else:
             lines.append(room.description)
             if self.state.location == "trailhead" and self.state.flags.get("trailhead_listened"):
@@ -303,6 +309,9 @@ class GameEngine:
         if self.state.location == "treasury":
             return "The treasury is utterly still. Ancient air holds its breath."
 
+        if self.state.location == "ancient_alcove":
+            return "Water drips steadily into the altar basin, a patient rhythm marking time beyond memory."
+
         return "You hear nothing unusual."
 
     def examine(self, target: str) -> str:
@@ -350,6 +359,15 @@ class GameEngine:
                     "where the water weeps and the worthy find rest. Three symbols mark the way: "
                     "the first, the river tear; the second, the stone memory; "
                     "the third, the idol gaze.'"
+                )
+
+        if target in {"altar", "stone altar"}:
+            if self.state.location == "ancient_alcove":
+                return (
+                    "The altar bears a carved inscription: "
+                    "'The river's tear opens the heart. The stone's memory holds the path. "
+                    "Place what watches upon the resting place, and truth shall be revealed.' "
+                    "Below, a small basin catches the steady drip of water from above."
                 )
 
         return f"You examine the {target}, but find nothing notable."

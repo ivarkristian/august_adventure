@@ -60,7 +60,18 @@ def build_world() -> dict[str, Room]:
                 "The sound of trickling water fills the air. Ancient stonework gives way to a small alcove "
                 "where dust motes dance in the filtered glow. A weathered journal lies open on a stone shelf."
             ),
-            exits={"west": "trailhead"},
+            exits={"west": "trailhead", "east": "ancient_alcove"},
             items=["journal"],
+        ),
+        "ancient_alcove": Room(
+            name="Ancient Alcove",
+            description=(
+                "A small chamber carved from living stone, untouched by time. "
+                "Water traces down the walls in thin threads, catching faint light. "
+                "An altar of dark stone stands at the center, its surface etched with an inscription. "
+                "The passage back lies to the west."
+            ),
+            exits={"west": "hidden_passage"},
+            items=["altar"],
         ),
     }

@@ -299,6 +299,32 @@ Track triage outcomes for August-originated feedback.
   Reason: Same as #54/#60 - truncated text bug not reproducible. Pedestal reveal text is complete.
   Planned milestone: N/A
 
+- Issue: `#50`
+  Status: accepted
+  Reason: Feature suggestion to expand Hidden Passage. Current hidden passage is functional (revealed via listen, contains journal). Will add a second room "Ancient Alcove" to expand exploration. Narrative fit HIGH (adds lore depth), Location fit HIGH (extends hidden_passage).
+  Planned milestone: M2 - Puzzle Depth
+  Implemented: Added "Ancient Alcove" room east of Hidden Passage; contains a small altar with inscription that hints at idol placement purpose.
+
+- Issue: `#51`
+  Status: deferred
+  Reason: Qualitative review at 3.17/5 at commit 72a1d70311e6. Notes good atmosphere and puzzles but suggests deeper lore. Same themes addressed by accepted issues. No new actionable items beyond prior scope.
+  Planned milestone: M2 - Puzzle Depth
+
+- Issue: `#56`
+  Status: deferred
+  Reason: Feature suggestion for multi-item puzzle integration. Partially implemented via existing lamp/tablet/coin/idol mechanics. Full combination puzzle deferred to future milestone for scope control.
+  Planned milestone: M3 - Extended Items
+
+- Issue: `#57`
+  Status: wontfix
+  Reason: Feature suggestion for environmental interaction puzzle. Already implemented: listen at Trailhead reveals hidden passage, use lamp in cavern reveals coin, use lamp in foyer reveals inscriptions.
+  Planned milestone: N/A
+
+- Issue: `#58`
+  Status: deferred
+  Reason: Qualitative review at 2.5/5. Notes promising atmosphere but suggests need for deeper lore and more branching. Same themes addressed by accepted issues. No new actionable items beyond prior scope.
+  Planned milestone: M4 - Content Expansion
+
 - Issue: `#68`
   Status: wontfix
   Reason: Inspect command already implemented. Parser maps "inspect" to "examine" action (line 57 of parser.py). Examine provides detailed room/item info.
