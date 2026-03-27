@@ -14,6 +14,7 @@ HELP_TEXT = """Commands:
   go <north|south|east|west> (or type direction directly)
   take <item>
   drop <item>
+  give <item>
   use <item>
   examine <target>
   listen
@@ -68,6 +69,8 @@ class GameEngine:
             return self.listen(), False
         if cmd.action == "examine":
             return self.examine(cmd.target), False
+        if cmd.action == "give":
+            return self.give(cmd.target), False
 
         return "I do not understand that command.", False
 
@@ -235,6 +238,21 @@ class GameEngine:
                 "'The river's memory flows deep. Where water echoes, truth sleeps.'"
             )
 
+        if item == "lamp" and self.state.location == "treasury":
+            if not self.state.flags.get("treasury_lamp_revealed"):
+                self.state.flags["treasury_lamp_revealed"] = True
+                if "coin" not in self.current_room().items and "coin" not in self.state.inventory:
+                    self.current_room().items.append("coin")
+                return (
+                    "You raise the lamp, sweeping it across the treasury. "
+                    "In the far corner, a glint catches your eye—a coin, "
+                    "half-hidden in the dust near the pedestal base."
+                )
+            return (
+                "You raise the lamp again. The treasury glows with warm amber light, "
+                "illuminating the pedestal and the coin you discovered."
+            )
+
         if item == "key" and self.state.location == "cavern":
             if self.state.flags.get("cavern_north_unlocked"):
                 return "The bronze gate is already unlocked."
@@ -269,6 +287,22 @@ class GameEngine:
             )
 
         if item == "tablet":
+            if self.state.location == "ancient_alcove":
+                if not self.state.flags.get("alcove_tablet_read"):
+                    self.state.flags["alcove_tablet_read"] = True
+                    return (
+                        "You speak the tablet's verses aloud in the alcove. "
+                        "The words echo against the stone walls. The altar trembles, "
+                        "and new inscriptions blaze into view: "
+                        "'The treasure was never gold or gem—the builders' wisdom, "
+                        "passed through those who seek. You have found it. "
+                        "The true tablet is your understanding.'"
+                    )
+                return (
+                    "You read the tablet's verses again. "
+                    "The altar glows faintly: 'The treasure was never gold or gem—the builders' wisdom, "
+                    "passed through those who seek.'"
+                )
             return (
                 "You study the weathered tablet. The strange symbols resolve into words: "
                 "'The river remembers what the stone forgets. Seek the echoes where the water weeps. "
@@ -371,6 +405,26 @@ class GameEngine:
                 )
 
         return f"You examine the {target}, but find nothing notable."
+
+    def give(self, item: str) -> str:
+        if not item:
+            return "Give what?"
+        if item not in self.state.inventory:
+            return f"You are not carrying {item}. Check your inventory with 'i'."
+
+        if item == "coin" and self.state.location == "treasury":
+            return self.use(Command(action="use", target="coin"))
+
+        if item == "idol" and self.state.location == "treasury":
+            return self.use(Command(action="use", target="idol"))
+
+        if item == "tablet" and self.state.location == "ancient_alcove":
+            return self.use(Command(action="use", target="tablet"))
+
+        if item == "lamp" and self.state.location == "treasury":
+            return self.use(Command(action="use", target="lamp"))
+
+        return f"You try giving the {item}, but nothing happens."
 
     def save(self, path_text: str) -> str:
         path = Path(path_text) if path_text else Path("savegame.json")

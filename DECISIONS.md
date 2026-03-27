@@ -364,3 +364,197 @@ Track triage outcomes for August-originated feedback.
   Status: deferred
   Reason: Feature suggestion for expanded environmental descriptions with sensory details. Descriptions already rich with sensory language (dripping water, amber light, shifting glyphs, dust motes). Minor expansion deferred for scope control.
   Planned milestone: M3 - Extended Items
+
+- Issue: `#96`
+  Status: wontfix
+  Reason: Lamp-activated hidden coin in cavern is already implemented (use lamp in cavern reveals coin).
+  Planned milestone: N/A
+
+- Issue: `#95`
+  Status: wontfix
+  Reason: Interactive glyph clue system already implemented. Lamp reveals inscriptions, examine glyphs provides contextual hints.
+  Planned milestone: N/A
+
+- Issue: `#94`
+  Status: wontfix
+  Reason: Echo chamber puzzle already implemented. Listen at Trailhead reveals hidden passage; lamp in cavern reveals water echoes.
+  Planned milestone: N/A
+
+- Issue: `#92`
+  Status: wontfix
+  Reason: Hidden water passage already implemented. Listen at Trailhead reveals hidden passage to east.
+  Planned milestone: N/A
+
+- Issue: `#93`
+  Status: wontfix
+  Reason: Interactive glyph in foyer already implemented. Examine glyphs after lamp reveals decoding hints.
+  Planned milestone: N/A
+
+- Issue: `#91`
+  Status: accepted
+  Reason: Feature suggestion for lamp revealing hidden coin on pedestal. Currently lamp has no effect in Treasury. Narrative fit HIGH, location fit HIGH. Will implement lamp interaction in Treasury that reveals hidden details.
+  Planned milestone: M3 - Polish
+  Implemented: Using lamp in Treasury reveals a hidden coin resting near the pedestal base.
+
+- Issue: `#90`
+  Status: wontfix
+  Reason: Idol-triggered secret compartment already implemented. Placing idol on pedestal reveals hidden alcove.
+  Planned milestone: N/A
+
+- Issue: `#88`
+  Status: wontfix
+  Reason: Hidden water-echo passage already implemented. Lamp in cavern shows water traces and echoes.
+  Planned milestone: N/A
+
+- Issue: `#89`
+  Status: deferred
+  Reason: Ancient Alcove stone-weight puzzle is complex and requires significant new mechanics. Current alcove has inscription and altar interaction.
+  Planned milestone: M4 - Content Expansion
+
+- Issue: `#87`
+  Status: accepted
+  Reason: Feature suggestion for give command to interact with mechanisms. Currently drop does not trigger interactions. Narrative fit HIGH, location fit HIGH. Will implement give command.
+  Planned milestone: M3 - Polish
+  Implemented: Added 'give <item>' command that triggers interactions with room objects (pedestal, altar).
+
+- Issue: `#85`
+  Status: deferred
+  Reason: Context-sensitive hint system is nice-to-have but adds complexity. Current error messages already provide some guidance.
+  Planned milestone: M4 - Content Expansion
+
+- Issue: `#86`
+  Status: wontfix
+  Reason: Functional lamp interaction already implemented in cavern. Treasury lamp interaction addressed in #91.
+  Planned milestone: N/A
+
+- Issue: `#84`
+  Status: accepted
+  Reason: Bug report - drop command does not allow giving items to mechanisms. Duplicate of #87, will implement give command.
+  Planned milestone: M3 - Polish
+
+- Issue: `#83`
+  Status: accepted
+  Reason: Bug report - tablet use in Alcove does nothing. Currently tablet only works in treasury. Narrative fit HIGH, location fit HIGH. Will implement tablet use in ancient_alcove.
+  Planned milestone: M3 - Polish
+  Implemented: Using tablet in Ancient Alcove reveals final verses about the treasure chamber.
+
+- Issue: `#82`
+  Status: accepted
+  Reason: Bug report - lamp has no effect in Treasury. Currently lamp only works in cavern and foyer. Narrative fit HIGH, location fit HIGH. Will implement lamp interaction in Treasury.
+  Planned milestone: M3 - Polish
+  Implemented: Using lamp in Treasury reveals hidden details and a coin near pedestal.
+
+- Issue: `#81`
+  Status: deferred
+  Reason: Item interaction branching is complex and would significantly alter puzzle flow. Current linear puzzle chain is clear and functional.
+  Planned milestone: M4 - Content Expansion
+
+- Issue: `#79`
+  Status: wontfix
+  Reason: Echo chamber puzzle already implemented. Listen at Trailhead reveals hidden passage.
+  Planned milestone: N/A
+
+- Issue: `#80`
+  Status: wontfix
+  Reason: Glyph hint system already implemented. Examine glyphs provides contextual hints.
+  Planned milestone: N/A
+
+- Issue: `#78`
+  Status: accepted
+  Reason: Bug report - dropping items does not influence environment. Duplicate of #84/#87, will implement give command.
+  Planned milestone: M3 - Polish
+
+- Issue: `#76`
+  Status: accepted
+  Reason: Bug report - lamp has no effect in Treasury. Duplicate of #82, will implement lamp interaction in Treasury.
+  Planned milestone: M3 - Polish
+
+- Issue: `#77`
+  Status: accepted
+  Reason: Bug report - tablet usage in hidden alcove does nothing. Duplicate of #83, will implement tablet use in ancient_alcove.
+  Planned milestone: M3 - Polish
+
+- Issue: `#75`
+  Status: deferred
+  Reason: Qualitative playtest at 2.67/5. Notes promising build with strong atmosphere and clear puzzle chain. Same themes addressed by prior accepted issues. No new actionable items.
+  Planned milestone: M3 - Polish
+
+- Issue: `#73`
+  Status: wontfix
+  Reason: Open optional side areas already implemented. Hidden Passage and Ancient Alcove are accessible.
+  Planned milestone: N/A
+
+- Issue: `#74`
+  Status: deferred
+  Reason: Ending sequence and discovery score would require significant new content. Could be future milestone.
+  Planned milestone: M4 - Content Expansion
+
+- Issue: `#72`
+  Status: wontfix
+  Reason: Examine and read verbs already implemented. Parser supports examine, read maps to examine.
+  Planned milestone: N/A
+
+- Issue: `#71`
+  Status: deferred
+  Reason: Ambient flavor text not room-specific is minor polish. Current flavor text is generic but functional.
+  Planned milestone: M4 - Content Expansion
+
+- Issue: `#70`
+  Status: wontfix
+  Reason: Truncated text bug not reproducible. Pedestal reveal text is complete.
+  Planned milestone: N/A
+
+- Issue: `#69`
+  Status: wontfix
+  Reason: Bronze gate lock state bug not reproducible. Gate correctly shows "stands open" after using key.
+  Planned milestone: N/A
+
+- Issue: `#68`
+  Status: wontfix
+  Reason: Inspect command already implemented. Parser maps inspect to examine action.
+  Planned milestone: N/A
+
+- Issue: `#66`
+  Status: wontfix
+  Reason: Same as #69 - gate lock state working correctly at current commit.
+  Planned milestone: N/A
+
+- Issue: `#67`
+  Status: wontfix
+  Reason: Same as #70 - truncated text bug not reproducible.
+  Planned milestone: N/A
+
+- Issue: `#65`
+  Status: deferred
+  Reason: Qualitative review at 3.83/5. Notes good atmosphere and puzzles but suggests deeper lore and branching. Same themes addressed by accepted issues.
+  Planned milestone: M4 - Content Expansion
+
+- Issue: `#64`
+  Status: wontfix
+  Reason: Ancient journal lore item already implemented in Hidden Passage per prior cycle.
+  Planned milestone: N/A
+
+- Issue: `#62`
+  Status: wontfix
+  Reason: Glyph decoding puzzle already implemented. Examine glyphs after lamp reveals hints.
+  Planned milestone: N/A
+
+- Issue: `#63`
+  Status: deferred
+  Reason: Alternative gate opening mechanic is interesting but adds complexity. Current key-gate puzzle is clear.
+  Planned milestone: M4 - Alternative Paths
+
+- Issue: `#61`
+  Status: wontfix
+  Reason: Gate lock state working correctly after using key.
+  Planned milestone: N/A
+
+- Issue: `#60`
+  Status: wontfix
+  Reason: Same as #70 - truncated text bug not reproducible.
+  Planned milestone: N/A
+
+- Issue: `#59`
+  Status: wontfix
+  Reason: Gate lock state working correctly.
+  Planned milestone: N/A

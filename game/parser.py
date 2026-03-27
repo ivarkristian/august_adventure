@@ -56,5 +56,7 @@ def parse_command(text: str) -> Command:
         return Command(action="listen", raw=text)
     if head in {"examine", "inspect", "decode"}:
         return Command(action="examine", target=second, raw=text)
+    if head in {"give", "place", "put"}:
+        return Command(action="give", target=second, raw=text)
 
     return Command(action="unknown", raw=text)
