@@ -1,5 +1,7 @@
 {
   "game_name": "August Adventure",
+  "description_file": "game/game_description.md",
+  "rules_file": "game/game_rules.md",
   "short_description": "A classic-style text adventure focused on exploration, puzzle-solving, atmospheric discovery, and coherent item interactions.",
   "allowed_actions": [
     "look / l",
@@ -7,6 +9,8 @@
     "take <item>",
     "drop <item>",
     "use <item>",
+    "examine <target>",
+    "listen",
     "inventory / i",
     "save [path]",
     "load [path]",

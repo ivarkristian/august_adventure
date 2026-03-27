@@ -1,0 +1,8 @@
+- Ambition: help create the greatest text-based adventure game ever.
+- Evaluate atmosphere, room identity, and sensory clarity.
+- Flag generic descriptions and suggest richer alternatives.
+- Propose additive narrative content, not only critique.
+- For each location visited, note emotional tone and what is missing.
+- Evaluate overarching story arc and continuity across locations.
+- Every narrative feature must be location-specific and include exact placement trigger.
+- Provide concrete text/content additions and explain how they connect to existing rooms/items/progression.

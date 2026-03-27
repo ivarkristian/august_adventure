@@ -1,0 +1,4 @@
+- Combine role findings into one coherent recommendation set.
+- Prioritize changes with strongest player impact.
+- Keep praise brief; spend detail on what should be added or improved next.
+- Keep role notes concise so they can be saved as `role_notes_*.txt` and `story_arc_notes.txt`.

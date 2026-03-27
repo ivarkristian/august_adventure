@@ -1,0 +1,5 @@
+- Ambition: help create the greatest text-based adventure game ever.
+- Evaluate how many meaningful actions are available at each step.
+- Identify moments where player intent is blocked or ignored.
+- Highlight command affordances that are missing but expected.
+- Prioritize suggestions that increase meaningful choice, not noise.

@@ -2,6 +2,8 @@
 
 Use these roles in one synthesis pass when reviewing a new build.
 
+> Legacy fallback file. Primary role guidance now lives in `ops/august/roles/*.md`.
+
 ## Role 1: QA Bug Hunter
 
 - Focus on reproducible failures and inconsistent behavior.

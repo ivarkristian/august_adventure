@@ -49,6 +49,15 @@ ROLE_LABELS = {
 }
 
 
+ROLE_WORKSPACE_DIR = {
+    "qa": "qa",
+    "narrative": "narrative",
+    "puzzle": "puzzle",
+    "agency": "agency",
+    "publisher": "publisher",
+}
+
+
 ROLE_FIELD_PRIORITY = {
     "overall_thoughts": ["publisher", "narrative", "qa", "puzzle", "agency"],
     "location_assessment": ["narrative", "publisher", "qa", "agency", "puzzle"],
@@ -109,15 +118,26 @@ class GitHubIssue:
     labels: list[str]
 
 
-def run_cmd(command: list[str], cwd: Path | None = None, timeout: int = 300) -> CmdResult:
-    proc = subprocess.run(
-        command,
-        cwd=str(cwd) if cwd else None,
-        text=True,
-        capture_output=True,
-        timeout=timeout,
-        check=False,
-    )
+def run_cmd(
+    command: list[str],
+    cwd: Path | None = None,
+    timeout: int = 300,
+    env: dict[str, str] | None = None,
+) -> CmdResult:
+    try:
+        proc = subprocess.run(
+            command,
+            cwd=str(cwd) if cwd else None,
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+            env=env,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        stdout = exc.stdout if isinstance(exc.stdout, str) else ""
+        stderr = exc.stderr if isinstance(exc.stderr, str) else ""
+        return CmdResult(124, stdout.strip(), clean_line(f"timeout after {timeout}s: {stderr}", 220))
     return CmdResult(proc.returncode, proc.stdout.strip(), proc.stderr.strip())
 
 
@@ -166,6 +186,53 @@ def detect_repo_slug(repo_dir: Path, explicit_slug: str) -> str:
     return parse_github_slug_from_remote(origin.out)
 
 
+def parse_short_description_from_markdown(text: str) -> str:
+    lines: list[str] = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            if lines:
+                break
+            continue
+        if line.startswith("#"):
+            continue
+        lines.append(line)
+
+    if not lines:
+        return ""
+    return clean_line(" ".join(lines), 700)
+
+
+def parse_allowed_actions_from_rules_text(text: str) -> list[str]:
+    actions: list[str] = []
+
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith(("-", "*")):
+            item = line[1:].strip()
+        else:
+            numbered = re.match(r"^\d+[\.)]\s+(.*)$", line)
+            if not numbered:
+                continue
+            item = numbered.group(1).strip()
+
+        cleaned = clean_line(item, 120)
+        if cleaned:
+            actions.append(cleaned)
+
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for action in actions:
+        key = action.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(action)
+    return deduped
+
+
 def load_game_profile(repo_dir: Path) -> GameProfile:
     profile_path = repo_dir / "ops" / "august" / "game_profile.json"
     if not profile_path.exists():
@@ -184,17 +251,32 @@ def load_game_profile(repo_dir: Path) -> GameProfile:
     allowed_actions_raw = raw.get("allowed_actions", [])
     scenarios_raw = raw.get("exploratory_scenarios", [])
     gameplay_terms_raw = raw.get("gameplay_terms", [])
+    description_file_rel = str(raw.get("description_file", "game/game_description.md")).strip()
+    rules_file_rel = str(raw.get("rules_file", "game/game_rules.md")).strip()
+
+    if description_file_rel:
+        description_path = repo_dir / description_file_rel
+        if description_path.exists():
+            short_description = parse_short_description_from_markdown(description_path.read_text(encoding="utf-8"))
+
+    allowed_actions: list[str] = []
+    if rules_file_rel:
+        rules_path = repo_dir / rules_file_rel
+        if rules_path.exists():
+            allowed_actions = parse_allowed_actions_from_rules_text(rules_path.read_text(encoding="utf-8"))
 
     if not game_name:
         raise RuntimeError("invalid game profile: game_name is required")
     if not short_description:
         raise RuntimeError("invalid game profile: short_description is required")
-    if not isinstance(allowed_actions_raw, list) or not allowed_actions_raw:
-        raise RuntimeError("invalid game profile: allowed_actions must be a non-empty list")
     if not isinstance(scenarios_raw, list) or not scenarios_raw:
         raise RuntimeError("invalid game profile: exploratory_scenarios must be a non-empty list")
 
-    allowed_actions = [clean_line(str(action), 120) for action in allowed_actions_raw if clean_line(str(action), 120)]
+    if not allowed_actions:
+        if not isinstance(allowed_actions_raw, list) or not allowed_actions_raw:
+            raise RuntimeError("invalid game profile: allowed_actions must be a non-empty list")
+        allowed_actions = [clean_line(str(action), 120) for action in allowed_actions_raw if clean_line(str(action), 120)]
+
     if not allowed_actions:
         raise RuntimeError("invalid game profile: allowed_actions contains no usable entries")
 
@@ -232,18 +314,35 @@ def load_game_profile(repo_dir: Path) -> GameProfile:
 
 
 def sync_repo(repo_dir: Path) -> str:
+    sync_mode = os.getenv("AUGUST_SYNC_MODE", "hard-reset").strip().lower()
+
+    if sync_mode == "none":
+        head = run_cmd(["git", "rev-parse", "HEAD"], cwd=repo_dir)
+        if head.code != 0:
+            raise RuntimeError(f"git rev-parse failed: {head.err}")
+        return head.out.strip()
+
     fetch = run_cmd(["git", "fetch", "origin"], cwd=repo_dir, timeout=300)
     if fetch.code != 0:
         raise RuntimeError(f"git fetch failed: {fetch.err}")
+
+    checkout = run_cmd(["git", "checkout", "main"], cwd=repo_dir)
+    if checkout.code != 0:
+        raise RuntimeError(f"git checkout failed: {checkout.err}")
+
+    if sync_mode == "fast-forward":
+        pull = run_cmd(["git", "pull", "--ff-only", "origin", "main"], cwd=repo_dir, timeout=300)
+        if pull.code != 0:
+            raise RuntimeError(f"git pull --ff-only failed: {pull.err}")
+        head = run_cmd(["git", "rev-parse", "HEAD"], cwd=repo_dir)
+        if head.code != 0:
+            raise RuntimeError(f"git rev-parse failed: {head.err}")
+        return head.out.strip()
 
     rev = run_cmd(["git", "rev-parse", "origin/main"], cwd=repo_dir)
     if rev.code != 0:
         raise RuntimeError(f"git rev-parse failed: {rev.err}")
     sha = rev.out.strip()
-
-    checkout = run_cmd(["git", "checkout", "main"], cwd=repo_dir)
-    if checkout.code != 0:
-        raise RuntimeError(f"git checkout failed: {checkout.err}")
 
     reset = run_cmd(["git", "reset", "--hard", "origin/main"], cwd=repo_dir)
     if reset.code != 0:
@@ -288,28 +387,223 @@ def run_tests(repo_dir: Path, python_bin: Path) -> dict[str, CmdResult]:
     }
 
 
-def run_exploratory_scenarios(
-    repo_dir: Path,
-    python_bin: Path,
-    scenarios: list[dict[str, Any]],
-) -> dict[str, str]:
+def role_workspaces_root() -> Path:
+    root_raw = os.getenv("AUGUST_PICOCLAW_ROLE_WORKSPACES_ROOT", "").strip()
+    if root_raw:
+        return Path(root_raw).expanduser()
+    return Path.home() / ".picoclaw" / "workspace" / "august-playtest" / "workspaces"
+
+
+def resolve_role_workspace(role_key: str) -> Path | None:
+    root = role_workspaces_root()
+    role_dir = ROLE_WORKSPACE_DIR.get(role_key, role_key)
+    path = root / role_dir
+    if path.exists():
+        return path
+    return None
+
+
+def sanitize_turn_command(raw: str) -> str:
+    value = raw.strip().strip("`\"")
+    value = re.sub(r"\s+", " ", value)
+    return value[:80].strip()
+
+
+def extract_turn_command(text: str) -> str:
+    parsed = parse_json_object(text)
+    if isinstance(parsed, dict):
+        candidate = sanitize_turn_command(str(parsed.get("command", "")))
+        if candidate:
+            return candidate
+
+    cleaned = sanitize_agent_output(text, 400)
+    for line in cleaned.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith("{") or stripped.startswith("["):
+            continue
+        if ":" in stripped and len(stripped.split()) > 5:
+            continue
+        candidate = sanitize_turn_command(stripped)
+        if candidate:
+            return candidate
+    return ""
+
+
+def load_roles_text(repo_dir: Path) -> str:
+    roles_dir = repo_dir / "ops" / "august" / "roles"
+    sections: list[str] = []
+
+    if roles_dir.exists():
+        for role_key in ROLE_ORDER:
+            role_path = roles_dir / f"{role_key}.md"
+            if not role_path.exists():
+                continue
+            body = role_path.read_text(encoding="utf-8").strip()
+            if not body:
+                continue
+            sections.append(f"## {ROLE_HEADINGS[role_key]}\n\n{body}")
+
+        synthesis_path = roles_dir / "synthesis.md"
+        if synthesis_path.exists():
+            synthesis = synthesis_path.read_text(encoding="utf-8").strip()
+            if synthesis:
+                sections.append(f"## Synthesis Guidance\n\n{synthesis}")
+
+    if sections:
+        return "\n\n".join(sections).rstrip() + "\n"
+
+    return load_text_file(repo_dir / "ops" / "august" / "consultant_roles.md")
+
+
+def build_turn_prompt(
+    role_key: str,
+    profile: GameProfile,
+    short_description: str,
+    location: str,
+    inventory: list[str],
+    turn_index: int,
+    max_actions: int,
+    location_changes: int,
+    max_location_changes: int,
+    recent_transcript: str,
+) -> str:
+    role_label = ROLE_LABELS[role_key]
+    actions = "\n".join(f"- {item}" for item in profile.allowed_actions)
+    inv = ", ".join(sorted(inventory)) if inventory else "(empty)"
+    location_budget = (
+        f"{location_changes}/{max_location_changes}" if max_location_changes > 0 else f"{location_changes} (unlimited)"
+    )
+    return f"""
+TASK_MODE: NEXT_COMMAND
+Role: {role_label}
+Game: {profile.game_name}
+Game description: {short_description}
+Action: {turn_index}/{max_actions}
+Current location key: {location}
+Inventory: {inv}
+Location changes used: {location_budget}
+
+You are actively playtesting. Decide the next command based on current evidence.
+Prefer exploration, fair puzzle discovery, and meaningful interactions.
+Avoid save/load/help unless absolutely necessary.
+
+Allowed actions:
+{actions}
+
+Recent transcript:
+{recent_transcript}
+
+Return STRICT JSON only:
+{{"command":"<next command>","reason":"<short reason>"}}
+""".strip()
+
+
+def run_exploratory_scenarios(repo_dir: Path, profile: GameProfile) -> dict[str, str]:
+    if str(repo_dir) not in sys.path:
+        sys.path.insert(0, str(repo_dir))
+
+    try:
+        from game.engine import GameEngine  # type: ignore
+        from game.parser import parse_command  # type: ignore
+    except Exception as exc:  # noqa: BLE001
+        return {"role_runner": f"Failed to load game modules for unscripted playtest: {exc}"}
+
+    model_override = os.getenv("AUGUST_PICOCLAW_MODEL", "").strip()
+    escalation_model = os.getenv("AUGUST_PICOCLAW_ESCALATION_MODEL", "").strip()
+    session_prefix = os.getenv("AUGUST_PICOCLAW_SESSION_PREFIX", "cli:august-playtest")
+    max_actions = env_positive_int("AUGUST_ROLE_MAX_ACTIONS", env_positive_int("AUGUST_ROLE_MAX_TURNS", 32))
+    max_location_changes = env_nonnegative_int("AUGUST_ROLE_MAX_LOCATION_CHANGES", 16)
+    transcript_window = env_positive_int("AUGUST_ROLE_TRANSCRIPT_WINDOW", 14)
+
     results: dict[str, str] = {}
-    for scenario in scenarios:
-        name = str(scenario.get("name", "scenario"))
-        seed = int(scenario.get("seed", 1))
-        commands_raw = scenario.get("commands", [])
-        commands = [str(cmd) for cmd in commands_raw] if isinstance(commands_raw, list) else []
-        py = (
-            "from game.playtest import run_playthrough\n"
-            f"cmds={json.dumps(commands)}\n"
-            f"r=run_playthrough(cmds,seed={seed})\n"
-            "print('\\n'.join(r.transcript))\n"
-        )
-        result = run_cmd([str(python_bin), "-c", py], cwd=repo_dir, timeout=300)
-        if result.code != 0:
-            results[name] = f"Scenario failed: {result.err}"
-        else:
-            results[name] = result.out
+
+    for idx, role_key in enumerate(ROLE_ORDER):
+        seed = 101 + (idx * 17)
+        engine = GameEngine(seed=seed)
+        session_key = build_consultant_session_key(session_prefix, f"play-{role_key}", idx + 1)
+        workspace = resolve_role_workspace(role_key)
+
+        transcript_lines = [engine.look()]
+        stagnant_turns = 0
+        previous_signature = ""
+        location_changes = 0
+
+        for turn in range(1, max_actions + 1):
+            current_location = str(getattr(engine.state, "location", "unknown"))
+            recent = "\n".join(transcript_lines[-transcript_window:])
+            prompt = build_turn_prompt(
+                role_key=role_key,
+                profile=profile,
+                short_description=profile.short_description,
+                location=current_location,
+                inventory=list(getattr(engine.state, "inventory", [])),
+                turn_index=turn,
+                max_actions=max_actions,
+                location_changes=location_changes,
+                max_location_changes=max_location_changes,
+                recent_transcript=recent,
+            )
+
+            result = run_picoclaw_consultant(
+                prompt,
+                session_key,
+                model_override,
+                role_workspace=workspace,
+                timeout=180,
+                reset_main=False,
+            )
+            combined = "\n".join(part for part in [result.out, result.err] if part)
+            command = validate_turn_command(extract_turn_command(combined), parse_command)
+            if not command and escalation_model:
+                escalation_result = run_picoclaw_consultant(
+                    prompt,
+                    session_key,
+                    escalation_model,
+                    role_workspace=workspace,
+                    timeout=180,
+                    reset_main=False,
+                )
+                escalation_combined = "\n".join(part for part in [escalation_result.out, escalation_result.err] if part)
+                command = validate_turn_command(extract_turn_command(escalation_combined), parse_command)
+            if not command:
+                command = "look"
+
+            transcript_lines.append(f"> {command}")
+            output, done = engine.step(command)
+            transcript_lines.append(output)
+
+            next_location = str(getattr(engine.state, "location", "unknown"))
+            if next_location != current_location:
+                location_changes += 1
+
+            signature = "|".join(
+                [
+                    str(getattr(engine.state, "location", "")),
+                    ",".join(sorted(getattr(engine.state, "inventory", []))),
+                    clean_line(output.lower(), 120),
+                ]
+            )
+            if signature == previous_signature:
+                stagnant_turns += 1
+            else:
+                stagnant_turns = 0
+            previous_signature = signature
+
+            if done:
+                break
+            if max_location_changes > 0 and location_changes >= max_location_changes:
+                transcript_lines.append(
+                    f"[runner] stopping role run: location-change budget reached ({location_changes}/{max_location_changes})"
+                )
+                break
+            if stagnant_turns >= 6:
+                transcript_lines.append("[runner] stopping role run: low-progress loop detected")
+                break
+
+        results[f"role_{role_key}"] = "\n".join(transcript_lines).strip()
+
     return results
 
 
@@ -495,12 +789,12 @@ def build_latest_brief_text(
     score_lines = []
     for item in review.get("dimension_scores", []):
         label = dim_name.get(str(item.get("dimension", "")), str(item.get("dimension", "")))
-        score_lines.append(f"- {label}: {item.get('score', 3)}/5 ({clean_line(str(item.get('why', '')), 80)})")
+        score_lines.append(f"- {label}: {item.get('score', 3)}/5 ({clean_line(str(item.get('why', '')), 220)})")
 
-    strength_lines = [f"- {clean_line(str(x), 140)}" for x in strengths[:2]] if strengths else ["- None"]
-    improvement_lines = [f"- {clean_line(str(x), 140)}" for x in improvements[:5]] if improvements else ["- None"]
-    narrative_lines = [f"- {clean_line(str(x), 160)}" for x in narrative_additions[:5]] if narrative_additions else ["- None"]
-    puzzle_lines = [f"- {clean_line(str(x), 160)}" for x in puzzle_additions[:5]] if puzzle_additions else ["- None"]
+    strength_lines = [f"- {clean_line(str(x), 280)}" for x in strengths[:2]] if strengths else ["- None"]
+    improvement_lines = [f"- {clean_line(str(x), 280)}" for x in improvements[:5]] if improvements else ["- None"]
+    narrative_lines = [f"- {clean_line(str(x), 320)}" for x in narrative_additions[:5]] if narrative_additions else ["- None"]
+    puzzle_lines = [f"- {clean_line(str(x), 320)}" for x in puzzle_additions[:5]] if puzzle_additions else ["- None"]
 
     lines = [
         f"{game_name} - Latest Playtest Brief",
@@ -567,6 +861,13 @@ def build_story_arc_notes_text(review: dict[str, Any]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
+def build_transcript_text(title: str, transcript: str) -> str:
+    lines = [title, ""]
+    body = transcript.strip()
+    lines.append(body if body else "(no transcript output recorded in this run)")
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def truncate_for_discord(text: str, limit: int = 1800) -> str:
     clean = text.strip()
     if len(clean) <= limit:
@@ -617,6 +918,15 @@ def generate_history_docs(
         "role_notes_agency.txt": build_role_notes_text("Role Notes - Player Agency Advocate", agency_notes),
         "role_notes_publisher.txt": build_role_notes_text("Role Notes - Experienced Game Publisher", publisher_notes),
     }
+
+    for role_key in ROLE_ORDER:
+        transcript_key = f"role_{role_key}"
+        role_label = ROLE_LABELS[role_key]
+        docs[f"transcript_{role_key}.txt"] = build_transcript_text(
+            f"Full Transcript - {role_label}",
+            exploratory.get(transcript_key, ""),
+        )
+
     docs["latest_playtest_brief.txt"] = build_latest_brief_text(
         profile.game_name,
         repo,
@@ -675,6 +985,33 @@ def env_positive_int(name: str, default: int) -> int:
     except ValueError:
         return default
     return value if value > 0 else default
+
+
+def env_nonnegative_int(name: str, default: int) -> int:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        return default
+    return value if value >= 0 else default
+
+
+def resolve_consultant_model_for_tier(primary_model: str, escalation_model: str, tier: int, escalate_after_tier: int) -> str:
+    if escalation_model and tier >= max(0, escalate_after_tier):
+        return escalation_model
+    return primary_model
+
+
+def validate_turn_command(command: str, parse_command: Any) -> str:
+    cleaned = clean_line(command, 120)
+    if not cleaned:
+        return ""
+    action = parse_command(cleaned).action
+    if action in {"unknown", "empty", "save", "load", "help"}:
+        return ""
+    return cleaned
 
 
 def compact_lines(lines: list[str], limit_items: int, limit_chars: int = 200) -> list[str]:
@@ -847,7 +1184,16 @@ def dedupe_feature_title(title: str) -> str:
 
 
 def is_concrete_gameplay_feature(feature: dict[str, Any], gameplay_terms: list[str]) -> bool:
-    text = f"{feature.get('title', '')} {feature.get('proposal', '')}".lower()
+    step_text = " ".join(str(item) for item in feature.get("implementation_steps", []) if isinstance(item, str))
+    acceptance_text = " ".join(str(item) for item in feature.get("acceptance_checks", []) if isinstance(item, str))
+    text = (
+        f"{feature.get('title', '')} "
+        f"{feature.get('proposal', '')} "
+        f"{feature.get('location_anchor', '')} "
+        f"{feature.get('placement_trigger', '')} "
+        f"{feature.get('integration_with_existing_loop', '')} "
+        f"{step_text} {acceptance_text}"
+    ).lower()
     concrete_keywords = [
         "room",
         "location",
@@ -979,6 +1325,8 @@ def normalize_suggestions(raw: dict[str, Any], max_bugs: int, max_features: int)
                 "repro_steps": [clean_line(str(x), 240) for x in bug.get("repro_steps", [])[:10]]
                 if isinstance(bug.get("repro_steps"), list)
                 else [],
+                "expected_result": clean_line(str(bug.get("expected_result", "")), 600),
+                "actual_result": clean_line(str(bug.get("actual_result", "")), 600),
                 "severity": clean_line(str(bug.get("severity", "medium")), 16).lower(),
             }
         )
@@ -999,6 +1347,15 @@ def normalize_suggestions(raw: dict[str, Any], max_bugs: int, max_features: int)
                 "title": clean_line(str(feature.get("title", "Playtest feature idea")), 120),
                 "player_value": clean_line(str(feature.get("player_value", "")), 800),
                 "proposal": clean_line(str(feature.get("proposal", "")), 800),
+                "location_anchor": clean_line(str(feature.get("location_anchor", "")), 120),
+                "placement_trigger": clean_line(str(feature.get("placement_trigger", "")), 240),
+                "integration_with_existing_loop": clean_line(str(feature.get("integration_with_existing_loop", "")), 800),
+                "implementation_steps": [clean_line(str(x), 260) for x in feature.get("implementation_steps", [])[:10]]
+                if isinstance(feature.get("implementation_steps"), list)
+                else [],
+                "acceptance_checks": [clean_line(str(x), 260) for x in feature.get("acceptance_checks", [])[:10]]
+                if isinstance(feature.get("acceptance_checks"), list)
+                else [],
                 "concrete_gameplay_change": concrete_flag,
             }
         )
@@ -1090,14 +1447,28 @@ def maybe_reset_picoclaw_main_session() -> None:
             pass
 
 
-def run_picoclaw_consultant(message: str, session_key: str, model: str) -> CmdResult:
-    maybe_reset_picoclaw_main_session()
+def run_picoclaw_consultant(
+    message: str,
+    session_key: str,
+    model: str,
+    role_workspace: Path | None = None,
+    timeout: int = 420,
+    reset_main: bool = True,
+) -> CmdResult:
+    if reset_main:
+        maybe_reset_picoclaw_main_session()
 
     cmd = ["picoclaw", "agent", "--session", session_key]
     if model:
         cmd.extend(["--model", model])
     cmd.extend(["-m", message])
-    return run_cmd(cmd, timeout=420)
+
+    env = None
+    if role_workspace is not None:
+        env = dict(os.environ)
+        env["PICOCLAW_AGENTS_DEFAULTS_WORKSPACE"] = str(role_workspace)
+
+    return run_cmd(cmd, timeout=timeout, env=env)
 
 
 def build_role_guidance_text(roles_text: str, role_key: str, cap: int) -> str:
@@ -1129,12 +1500,28 @@ def build_role_prompt(
     role_max_features: int,
 ) -> str:
     role_label = ROLE_LABELS[role_key]
+    ambition_rule = (
+        "- Ambition: help create the greatest text-based adventure game ever."
+        if role_key in {"narrative", "puzzle", "agency", "publisher"}
+        else ""
+    )
     publisher_rule = (
         "- As publisher role, include feature suggestions only when they are concrete gameplay/content changes.\n"
         "- For every feature include `concrete_gameplay_change` boolean. Use true only for concrete in-game changes."
         if role_key == "publisher"
         else "- Set `concrete_gameplay_change` to true only when the feature is a concrete in-game gameplay/content change."
     )
+    role_feature_rule = ""
+    if role_key == "puzzle":
+        role_feature_rule = (
+            "- Puzzle role feature proposals must be original puzzle designs with exact placement and integration details.\n"
+            "- For each puzzle feature, include where it is placed, clue chain, dependencies, and how it extends the existing key/lamp/coin/tablet loop."
+        )
+    elif role_key == "narrative":
+        role_feature_rule = (
+            "- Narrative role feature proposals must be anchored to specific locations and moments in this build.\n"
+            "- For each narrative feature, specify where it appears, when it triggers, and exact content additions (not generic hints)."
+        )
 
     return f"""
 You are August acting only as: {role_label}.
@@ -1194,8 +1581,18 @@ Return STRICT JSON only with this schema:
       "publisher":["string"]
     }}
   }},
-  "bugs": [{{"title":"string","summary":"string","repro_steps":["string"],"severity":"low|medium|high"}}],
-  "features": [{{"title":"string","player_value":"string","proposal":"string","concrete_gameplay_change":true}}]
+  "bugs": [{{"title":"string","summary":"string","repro_steps":["string"],"expected_result":"string","actual_result":"string","severity":"low|medium|high"}}],
+  "features": [{{
+    "title":"string",
+    "player_value":"string",
+    "proposal":"string",
+    "location_anchor":"string",
+    "placement_trigger":"string",
+    "integration_with_existing_loop":"string",
+    "implementation_steps":["string"],
+    "acceptance_checks":["string"],
+    "concrete_gameplay_change":true
+  }}]
 }}
 
 Rules:
@@ -1205,6 +1602,11 @@ Rules:
 - Base scores on rubric anchors, do not invent a custom scale.
 - Keep positive feedback brief (1-2 short bullets).
 - Put most detail into actionable improvements/additions.
+- Keep bug/feature recommendations specific enough to become clear GitHub issues.
+- Every bug must include reproducible `repro_steps`, plus clear `expected_result` and `actual_result`.
+- Every feature must include concrete `location_anchor`, `placement_trigger`, `integration_with_existing_loop`, `implementation_steps`, and `acceptance_checks`.
+{ambition_rule}
+{role_feature_rule}
 {publisher_rule}
 """.strip()
 
@@ -1311,9 +1713,7 @@ def merge_role_notes(role_packs: dict[str, dict[str, Any]]) -> dict[str, list[st
 
 def merge_role_consultant_packs(
     role_packs: dict[str, dict[str, Any]],
-    gameplay_terms: list[str],
     max_bugs: int,
-    max_features: int,
 ) -> dict[str, Any]:
     scores = merge_dimension_scores(role_packs)
     average = sum(item["score"] for item in scores) / len(scores)
@@ -1352,28 +1752,9 @@ def merge_role_consultant_packs(
         if len(bugs) >= max_bugs:
             break
 
-    features: list[dict[str, Any]] = []
-    seen_features: set[str] = set()
-    for role in feature_priority:
-        for feature in role_packs.get(role, {}).get("features", []):
-            if not isinstance(feature, dict):
-                continue
-            if role == "publisher":
-                if not bool(feature.get("concrete_gameplay_change")):
-                    continue
-                if not is_concrete_gameplay_feature(feature, gameplay_terms):
-                    continue
-            title_key = dedupe_feature_title(str(feature.get("title", "")))
-            if not title_key or title_key in seen_features:
-                continue
-            seen_features.add(title_key)
-            features.append(feature)
-            if len(features) >= max_features:
-                break
-        if len(features) >= max_features:
-            break
-
-    return {"overall_review": review, "bugs": bugs, "features": features}
+    # Keep merged pack focused on cross-role review and bug rollup.
+    # Feature issues are opened per-role from raw role packs.
+    return {"overall_review": review, "bugs": bugs, "features": []}
 
 
 def ask_august_consultant(
@@ -1385,25 +1766,20 @@ def ask_august_consultant(
     rubric_text: str,
     roles_text: str,
     max_bugs: int,
-    max_features: int,
-) -> tuple[dict[str, Any], list[str], ConsultantDiagnostics]:
+    max_features_per_role: int,
+) -> tuple[dict[str, Any], dict[str, dict[str, Any]], list[str], ConsultantDiagnostics]:
     model_override = os.getenv("AUGUST_PICOCLAW_MODEL", "").strip()
+    escalation_model = os.getenv("AUGUST_PICOCLAW_ESCALATION_MODEL", "").strip()
+    escalate_after_tier = env_nonnegative_int("AUGUST_PICOCLAW_ESCALATE_AFTER_TIER", 2)
     session_prefix = os.getenv("AUGUST_PICOCLAW_SESSION_PREFIX", "cli:august-playtest")
     context_budget = env_positive_int("AUGUST_CONTEXT_CHAR_BUDGET", 14000)
 
-    scenario_order = [str(item.get("name", "")) for item in profile.exploratory_scenarios if str(item.get("name", ""))]
+    scenario_order = [f"role_{role}" for role in ROLE_ORDER if f"role_{role}" in exploratory]
+    if not scenario_order:
+        scenario_order = sorted(exploratory.keys())
     game_description_raw = build_game_description_text(profile, world, limit=1200)
     rules_raw = build_rules_text(profile, world, test_results["smoke"].out)
     exploratory_summary_raw = build_exploratory_summary_text(exploratory, scenario_order, limit=6000)
-
-    gameplay_terms = compact_lines(
-        profile.gameplay_terms
-        + [profile.game_name]
-        + profile.allowed_actions
-        + re.findall(r"[a-zA-Z][a-zA-Z0-9_\-]{2,}", profile.short_description.lower()),
-        80,
-        30,
-    )
 
     role_max_bugs_map = {
         "qa": max_bugs,
@@ -1413,11 +1789,11 @@ def ask_august_consultant(
         "publisher": min(1, max_bugs),
     }
     role_max_features_map = {
-        "qa": min(1, max_features),
-        "narrative": min(2, max_features),
-        "puzzle": min(2, max_features),
-        "agency": min(2, max_features),
-        "publisher": max_features,
+        "qa": max_features_per_role,
+        "narrative": max_features_per_role,
+        "puzzle": max_features_per_role,
+        "agency": max_features_per_role,
+        "publisher": max_features_per_role,
     }
 
     role_packs: dict[str, dict[str, Any]] = {}
@@ -1426,8 +1802,11 @@ def ask_august_consultant(
     attempt_records: list[dict[str, Any]] = []
 
     for role_key in ROLE_ORDER:
-        role_pack = normalize_suggestions({}, max_bugs, max_features)
+        role_pack = normalize_suggestions({}, max_bugs, max_features_per_role)
         role_succeeded = False
+        role_workspace = resolve_role_workspace(role_key)
+        if role_workspace is None:
+            runner_notes.append(f"role={role_key} workspace missing under {role_workspaces_root()}")
 
         for tier in range(4):
             caps = compute_context_caps(context_budget, tier)
@@ -1447,11 +1826,22 @@ def ask_august_consultant(
                 role_max_features=role_max_features_map[role_key],
             )
 
+            model_for_tier = resolve_consultant_model_for_tier(
+                primary_model=model_override,
+                escalation_model=escalation_model,
+                tier=tier,
+                escalate_after_tier=escalate_after_tier,
+            )
             session_key = build_consultant_session_key(session_prefix, f"{commit_sha[:12]}-{role_key}", tier + 1)
-            result = run_picoclaw_consultant(prompt, session_key, model_override)
+            result = run_picoclaw_consultant(
+                prompt,
+                session_key,
+                model_for_tier,
+                role_workspace=role_workspace,
+            )
             text = "\n".join(part for part in [result.out, result.err] if part)
             parsed = parse_json_object(text)
-            candidate = normalize_suggestions(parsed, max_bugs, max_features)
+            candidate = normalize_suggestions(parsed, max_bugs, max_features_per_role)
             meaningful = role_pack_is_meaningful(candidate)
 
             parsed_keys = sorted(parsed.keys())[:10] if isinstance(parsed, dict) else []
@@ -1461,7 +1851,8 @@ def ask_august_consultant(
                     "role": role_key,
                     "tier": tier,
                     "session_key": session_key,
-                    "model": model_override or "default",
+                    "model": model_for_tier or "default",
+                    "workspace": str(role_workspace) if role_workspace is not None else "",
                     "rc": result.code,
                     "token_limited": is_token_limit_error(result),
                     "prompt_chars": len(prompt),
@@ -1493,16 +1884,14 @@ def ask_august_consultant(
 
     merged = merge_role_consultant_packs(
         role_packs,
-        gameplay_terms=gameplay_terms,
         max_bugs=max_bugs,
-        max_features=max_features,
     )
     diagnostics = ConsultantDiagnostics(
         role_success=role_success,
         substantive_roles=substantive_roles,
         attempt_records=attempt_records,
     )
-    return merged, runner_notes, diagnostics
+    return merged, role_packs, runner_notes, diagnostics
 
 
 def format_iso_to_ts(iso_text: str) -> float:
@@ -1731,20 +2120,71 @@ def resolve_report_channel(token: str, owner_id: str) -> str:
 
 
 def send_discord_message(token: str, channel_id: str, content: str) -> str:
-    data = discord_request(token, "POST", f"/channels/{channel_id}/messages", {"content": content[:1900]})
+    payload = truncate_for_discord(content, limit=1900)
+    data = discord_request(token, "POST", f"/channels/{channel_id}/messages", {"content": payload})
     message_id = data.get("id")
     return message_id if isinstance(message_id, str) else ""
 
 
 def edit_discord_message(token: str, channel_id: str, message_id: str, content: str) -> str:
+    payload = truncate_for_discord(content, limit=1900)
     data = discord_request(
         token,
         "PATCH",
         f"/channels/{channel_id}/messages/{message_id}",
-        {"content": content[:1900]},
+        {"content": payload},
     )
     edited_id = data.get("id")
     return edited_id if isinstance(edited_id, str) else ""
+
+
+def split_for_discord_messages(text: str, limit: int = 1840) -> list[str]:
+    clean = text.strip()
+    if not clean:
+        return []
+
+    lines = clean.splitlines()
+    parts: list[str] = []
+    current_lines: list[str] = []
+    current_len = 0
+
+    def flush() -> None:
+        nonlocal current_lines, current_len
+        if current_lines:
+            parts.append("\n".join(current_lines).strip())
+            current_lines = []
+            current_len = 0
+
+    for raw_line in lines:
+        line = raw_line
+        if not line:
+            candidate_len = current_len + (1 if current_lines else 0)
+            if candidate_len > limit:
+                flush()
+            else:
+                if current_lines:
+                    current_lines.append("")
+                    current_len = candidate_len
+            continue
+
+        while len(line) > limit:
+            flush()
+            parts.append(line[: limit - 1] + "…")
+            line = line[limit - 1 :]
+
+        extra = len(line) + (1 if current_lines else 0)
+        if current_lines and current_len + extra > limit:
+            flush()
+
+        if current_lines:
+            current_lines.append(line)
+            current_len += 1 + len(line)
+        else:
+            current_lines = [line]
+            current_len = len(line)
+
+    flush()
+    return parts
 
 
 def list_pinned_discord_messages(token: str, channel_id: str) -> list[dict[str, Any]]:
@@ -1930,11 +2370,15 @@ def build_overall_review_issue(
 def build_bug_issue(commit_sha: str, bug: dict[str, Any], test_results: dict[str, CmdResult]) -> GitHubIssue:
     steps = bug.get("repro_steps", [])
     steps_text = "\n".join(f"- {x}" for x in steps) if steps else "- See exploratory transcript"
+    expected_result = str(bug.get("expected_result", "")).strip() or "(not provided)"
+    actual_result = str(bug.get("actual_result", "")).strip() or "(not provided)"
     body = (
         f"Automated August bug report for commit `{commit_sha}`.\n\n"
         f"Summary:\n{bug.get('summary', '')}\n\n"
         f"Severity: {bug.get('severity', 'medium')}\n\n"
         f"Repro steps:\n{steps_text}\n\n"
+        f"Expected result:\n{expected_result}\n\n"
+        f"Actual result:\n{actual_result}\n\n"
         "Context:\n"
         f"- pytest exit: {test_results['pytest'].code}\n"
         f"- smoke exit: {test_results['smoke'].code}\n"
@@ -1943,16 +2387,47 @@ def build_bug_issue(commit_sha: str, bug: dict[str, Any], test_results: dict[str
     return GitHubIssue(title=title, body=body, labels=["august-feedback", "bug", "playtest", "triage-needed"])
 
 
-def build_feature_issue(commit_sha: str, feature: dict[str, Any], test_results: dict[str, CmdResult]) -> GitHubIssue:
+def build_feature_issue(
+    commit_sha: str,
+    role_key: str,
+    feature: dict[str, Any],
+    test_results: dict[str, CmdResult],
+) -> GitHubIssue:
+    role_label = ROLE_LABELS.get(role_key, role_key)
+    location_anchor = str(feature.get("location_anchor", "")).strip() or "(not provided)"
+    placement_trigger = str(feature.get("placement_trigger", "")).strip() or "(not provided)"
+    integration = str(feature.get("integration_with_existing_loop", "")).strip() or "(not provided)"
+    implementation_steps = feature.get("implementation_steps", [])
+    acceptance_checks = feature.get("acceptance_checks", [])
+
+    steps_text = (
+        "\n".join(f"- {clean_line(str(step), 260)}" for step in implementation_steps if str(step).strip())
+        if isinstance(implementation_steps, list)
+        else ""
+    )
+    checks_text = (
+        "\n".join(f"- {clean_line(str(check), 260)}" for check in acceptance_checks if str(check).strip())
+        if isinstance(acceptance_checks, list)
+        else ""
+    )
+
     body = (
         f"Automated August feature suggestion for commit `{commit_sha}`.\n\n"
+        f"Proposed by role: {role_label}\n\n"
         f"Player value:\n{feature.get('player_value', '')}\n\n"
         f"Proposal:\n{feature.get('proposal', '')}\n\n"
+        f"Location anchor:\n{location_anchor}\n\n"
+        f"Placement trigger:\n{placement_trigger}\n\n"
+        f"Integration with existing loop:\n{integration}\n\n"
+        "Implementation steps:\n"
+        f"{steps_text or '- (not provided)'}\n\n"
+        "Acceptance checks:\n"
+        f"{checks_text or '- (not provided)'}\n\n"
         "Context:\n"
         f"- pytest exit: {test_results['pytest'].code}\n"
         f"- smoke exit: {test_results['smoke'].code}\n"
     )
-    title = f"[August][Feature] {feature.get('title', 'Playtest feature idea')}"
+    title = f"[August][Feature][{role_key}] {feature.get('title', 'Playtest feature idea')}"
     return GitHubIssue(title=title, body=body, labels=["august-feedback", "feature", "playtest", "triage-needed"])
 
 
@@ -1975,17 +2450,17 @@ def format_summary(
     for item in review.get("dimension_scores", []):
         dim = str(item.get("dimension", ""))
         label = dim_name.get(dim, dim)
-        score_lines.append(f"- {label}: {item.get('score', 3)}/5 - {clean_line(str(item.get('why', '')), 90)}")
+        score_lines.append(f"- {label}: {item.get('score', 3)}/5 - {clean_line(str(item.get('why', '')), 220)}")
 
     strengths = review.get("top_strengths", [])
     improvements = review.get("top_improvements", [])
     narrative_additions = review.get("narrative_additions", [])
     puzzle_additions = review.get("puzzle_additions", [])
 
-    strength_lines = [f"- {clean_line(str(x), 120)}" for x in strengths[:2]] if strengths else ["- None"]
-    improvement_lines = [f"- {clean_line(str(x), 120)}" for x in improvements[:5]] if improvements else ["- None"]
-    narrative_lines = [f"- {clean_line(str(x), 120)}" for x in narrative_additions[:3]] if narrative_additions else ["- None"]
-    puzzle_lines = [f"- {clean_line(str(x), 120)}" for x in puzzle_additions[:3]] if puzzle_additions else ["- None"]
+    strength_lines = [f"- {clean_line(str(x), 280)}" for x in strengths[:2]] if strengths else ["- None"]
+    improvement_lines = [f"- {clean_line(str(x), 280)}" for x in improvements[:5]] if improvements else ["- None"]
+    narrative_lines = [f"- {clean_line(str(x), 320)}" for x in narrative_additions[:3]] if narrative_additions else ["- None"]
+    puzzle_lines = [f"- {clean_line(str(x), 320)}" for x in puzzle_additions[:3]] if puzzle_additions else ["- None"]
 
     lines = [
         "August playtest report",
@@ -1998,10 +2473,10 @@ def format_summary(
         "Dimension scores:",
         *score_lines,
         "Qualitative assessment:",
-        f"- Environment and locations: {clean_line(str(review.get('location_assessment', '')), 200)}",
-        f"- Quests and challenges: {clean_line(str(review.get('quests_challenges_assessment', '')), 200)}",
-        f"- Player agency: {clean_line(str(review.get('agency_assessment', '')), 200)}",
-        f"- Story arc: {clean_line(str(review.get('story_arc_assessment', '')), 200)}",
+        f"- Environment and locations: {clean_line(str(review.get('location_assessment', '')), 320)}",
+        f"- Quests and challenges: {clean_line(str(review.get('quests_challenges_assessment', '')), 320)}",
+        f"- Player agency: {clean_line(str(review.get('agency_assessment', '')), 320)}",
+        f"- Story arc: {clean_line(str(review.get('story_arc_assessment', '')), 320)}",
         "Top strengths:",
         *strength_lines,
         "Top improvements:",
@@ -2029,7 +2504,7 @@ def main() -> int:
     state_path = Path.home() / ".picoclaw" / "workspace" / "august-playtest" / "state.json"
     force = os.getenv("AUGUST_FORCE", "0") == "1"
     max_bugs = env_positive_int("AUGUST_MAX_BUGS", DEFAULT_MAX_BUGS)
-    max_features = env_positive_int("AUGUST_MAX_FEATURES", DEFAULT_MAX_FEATURES)
+    max_features_per_role = env_positive_int("AUGUST_MAX_FEATURES_PER_ROLE", env_positive_int("AUGUST_MAX_FEATURES", 3))
     min_substantive_roles = env_positive_int("AUGUST_MIN_SUBSTANTIVE_ROLES", 2)
 
     if not repo_url_env and repo_slug_env:
@@ -2064,14 +2539,14 @@ def main() -> int:
     try:
         python_bin = ensure_venv(repo_dir)
         test_results = run_tests(repo_dir, python_bin)
-        exploratory = run_exploratory_scenarios(repo_dir, python_bin, profile.exploratory_scenarios)
+        exploratory = run_exploratory_scenarios(repo_dir, profile)
     except Exception as exc:  # noqa: BLE001
         print(f"test setup failed: {exc}")
         return 1
 
     rubric_text = load_text_file(repo_dir / "docs" / "playtest_rubric.md")
-    roles_text = load_text_file(repo_dir / "ops" / "august" / "consultant_roles.md")
-    review_pack, runner_notes, consultant_diag = ask_august_consultant(
+    roles_text = load_roles_text(repo_dir)
+    review_pack, role_packs, runner_notes, consultant_diag = ask_august_consultant(
         sha,
         test_results,
         exploratory,
@@ -2080,7 +2555,7 @@ def main() -> int:
         rubric_text,
         roles_text,
         max_bugs,
-        max_features,
+        max_features_per_role,
     )
 
     role_matrix = ", ".join(
@@ -2101,6 +2576,15 @@ def main() -> int:
             f"minimum required is {min_substantive_roles}."
         )
 
+    gameplay_terms = compact_lines(
+        profile.gameplay_terms
+        + [profile.game_name]
+        + profile.allowed_actions
+        + re.findall(r"[a-zA-Z][a-zA-Z0-9_\-]{2,}", profile.short_description.lower()),
+        80,
+        30,
+    )
+
     gh = GitHubClient(repo)
     open_titles = list_open_issue_titles(gh)
     opened_urls: list[str] = []
@@ -2111,8 +2595,19 @@ def main() -> int:
         issues: list[GitHubIssue] = []
         for bug in review_pack["bugs"]:
             issues.append(build_bug_issue(sha, bug, test_results))
-        for feature in review_pack["features"]:
-            issues.append(build_feature_issue(sha, feature, test_results))
+        for role_key in ROLE_ORDER:
+            role_features = role_packs.get(role_key, {}).get("features", [])
+            if not isinstance(role_features, list):
+                continue
+            for feature in role_features[:max_features_per_role]:
+                if not isinstance(feature, dict):
+                    continue
+                if role_key == "publisher":
+                    if not bool(feature.get("concrete_gameplay_change")):
+                        continue
+                    if not is_concrete_gameplay_feature(feature, gameplay_terms):
+                        continue
+                issues.append(build_feature_issue(sha, role_key, feature, test_results))
         if review_meaningful:
             issues.append(build_overall_review_issue(sha, review_pack["overall_review"], test_results))
 
@@ -2204,9 +2699,19 @@ def main() -> int:
         try:
             report_channel_id = resolve_report_channel(discord_token, owner_id)
             if report_channel_id:
-                summary_message_id = send_discord_message(discord_token, report_channel_id, summary)
-                if summary_message_id:
-                    state["last_summary_message_id"] = summary_message_id
+                chunks = split_for_discord_messages(summary, limit=1840)
+                summary_message_ids: list[str] = []
+                for idx, chunk in enumerate(chunks, start=1):
+                    payload = chunk
+                    if len(chunks) > 1:
+                        payload = f"[Part {idx}/{len(chunks)}]\n{chunk}"
+                    message_id = send_discord_message(discord_token, report_channel_id, payload)
+                    if message_id:
+                        summary_message_ids.append(message_id)
+
+                if summary_message_ids:
+                    state["last_summary_message_id"] = summary_message_ids[-1]
+                    state["last_summary_message_ids"] = summary_message_ids
                     state["last_report_channel_id"] = report_channel_id
         except Exception as exc:  # noqa: BLE001
             discord_errors.append(f"summary send failed: {exc}")

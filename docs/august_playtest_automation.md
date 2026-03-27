@@ -12,18 +12,18 @@ This runbook describes the August automation workflow for monitoring and testing
 4. Run:
    - `pytest`
    - `python scripts/playthrough_smoke.py`
-5. Run three exploratory playthroughs (explorer, puzzle, skeptic).
+5. Run unscripted role-based exploratory playthroughs where each role decides commands turn by turn.
 6. Ask August for a structured assessment using role-split consultant passes:
     - `docs/playtest_rubric.md`
-    - `ops/august/consultant_roles.md`
+    - `ops/august/roles/*.md` (fallback: `ops/august/consultant_roles.md`)
     - roles: QA, Narrative, Puzzle, Agency, Publisher
     - each role receives game output context (raw excerpt or compressed summary), game rules/actions, short game description, and role guidance
     - payloads are capped by adaptive context budgets and retried with compressed packs on token-limit failures
 7. Produce:
-   - up to 3 bug issues,
-   - up to 3 feature issues,
-   - 1 qualitative overall review issue,
-   - only when at least `AUGUST_MIN_SUBSTANTIVE_ROLES` role outputs are substantive.
+    - up to 3 bug issues,
+    - up to 3 feature issues per role,
+    - 1 qualitative overall review issue,
+    - only when at least `AUGUST_MIN_SUBSTANTIVE_ROLES` role outputs are substantive.
 8. DM a technical + qualitative summary to the owner via Discord.
 9. Write and maintain historical reference docs under `history_docs/`:
    - `current/game_intro.txt`
@@ -44,7 +44,7 @@ The runner requires a game descriptor at:
 
 - `ops/august/game_profile.json`
 
-This profile defines game description, allowed actions, exploratory scenarios, and gameplay terminology.
+This profile defines game description, allowed actions, and gameplay terminology.
 
 ## Required Credentials
 
@@ -71,6 +71,14 @@ On the August host, from a local checkout of this repository:
 ```bash
 bash ops/august/install_on_august.sh
 ```
+
+This installer configures PicoClaw-native automation:
+
+- deploy role workspaces to `~/.picoclaw/workspace/august-playtest/workspaces/`
+- deploy orchestrator prompt to `~/.picoclaw/workspace/AGENT.md`
+- enable PicoClaw cron in `~/.picoclaw/config.json`
+- disable legacy `august-playtest.timer` systemd schedule
+- install an hourly PicoClaw cron job for playtesting
 
 Then edit your host-local environment file:
 
@@ -106,43 +114,56 @@ Playtest report destination (recommended for channel-only reporting):
 Optional consultant reliability controls:
 
 - `AUGUST_PICOCLAW_MODEL=<model>` (pin a specific model instead of default auto)
+- `AUGUST_PICOCLAW_ESCALATION_MODEL=<model>` (optional higher-quality fallback)
+- `AUGUST_PICOCLAW_ESCALATE_AFTER_TIER=2` (start using escalation model from tier index)
 - `AUGUST_PICOCLAW_SESSION_PREFIX=cli:august-playtest`
+- `AUGUST_ROLE_MAX_ACTIONS=32` (hard cap on commands per role run)
+- `AUGUST_ROLE_MAX_LOCATION_CHANGES=16` (hard cap on room transitions per role run; `0` disables)
 - `AUGUST_CONTEXT_CHAR_BUDGET=14000`
+- `AUGUST_MAX_FEATURES_PER_ROLE=3` (fallback alias: `AUGUST_MAX_FEATURES`)
 - `AUGUST_RESET_PICOCLAW_MAIN_SESSION=1`
 - `AUGUST_MIN_SUBSTANTIVE_ROLES=2`
 - `AUGUST_DEBUG_KEEP_RUNS=50`
+- `AUGUST_SYNC_MODE=hard-reset` (`fast-forward` and `none` are supported for controlled environments)
 
 If not set, runner pins the latest brief in the owner DM channel.
 
 ## Operations
 
-Run once manually:
+Run once manually (outside schedule):
 
 ```bash
-systemctl --user start august-playtest.service
-journalctl --user -u august-playtest.service -n 120 --no-pager
+/usr/bin/bash ~/.picoclaw/workspace/august_adventure/ops/august/run_from_picoclaw.sh
 ```
 
-Check schedule:
+Check PicoClaw schedule:
 
 ```bash
-systemctl --user list-timers august-playtest.timer --no-pager
+picoclaw cron list
 ```
 
 Force test even without new commit:
 
 ```bash
-AUGUST_FORCE=1 systemctl --user start august-playtest.service
+AUGUST_FORCE=1 /usr/bin/bash ~/.picoclaw/workspace/august_adventure/ops/august/run_from_picoclaw.sh
 ```
+
+Trigger ad-hoc run from Discord by messaging August, for example:
+
+- `run august playtest now`
 
 ## Notes
 
 - Overall score is the arithmetic average of all rubric dimensions.
 - If GitHub auth is missing, runner still executes tests and sends DM summary in dry-run mode.
-- `AUGUST_MAX_BUGS` and `AUGUST_MAX_FEATURES` control per-run issue caps.
+- `AUGUST_MAX_BUGS` controls merged bug issue cap; `AUGUST_MAX_FEATURES_PER_ROLE` controls per-role feature issue cap.
 - Historical docs are always refreshed for each tested commit and snapshotted for later reference.
+- Historical docs now include full per-role transcripts: `transcript_qa.txt`, `transcript_narrative.txt`, `transcript_puzzle.txt`, `transcript_agency.txt`, and `transcript_publisher.txt`.
+- Unscripted role prompts source shared game context from `game/game_description.md` and `game/game_rules.md`.
 - If report channel env is set, summaries are posted to that channel instead of DM.
+- Long Discord summaries are split across multiple sequential messages instead of hard truncating the tail.
 - Consultant output includes additive narrative/puzzle suggestions and overarching story-arc assessment.
+- Bug suggestions now include `expected_result` and `actual_result` fields, and those fields are included in GitHub bug issue bodies.
 - Publisher-role suggestions are only opened as feature issues when they are concrete gameplay/content changes.
 - Pipeline/framework failures are not opened as GitHub issues; diagnostics are written locally under `~/.picoclaw/workspace/august-playtest/debug/`.
 - On pipeline failure, August posts a short Discord status message with the local debug bundle path.

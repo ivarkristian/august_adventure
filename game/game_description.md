@@ -1,0 +1,1 @@
+A classic-style text adventure focused on exploration, puzzle solving, atmospheric discovery, and coherent item interactions. Players traverse mysterious spaces, uncover hidden relationships between rooms and objects, and earn satisfying breakthroughs through observation and experimentation.

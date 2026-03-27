@@ -22,11 +22,18 @@ august-adventure --seed 7
 - `go <direction>` (or `north`, `south`, `east`, `west`)
 - `take <item>` / `drop <item>`
 - `use <item>`
+- `examine <target>`
+- `listen`
 - `inventory` / `i`
 - `save [path]`
 - `load [path]`
 - `help`
 - `quit`
+
+Canonical automation prompt context sources:
+
+- game description: `game/game_description.md`
+- rules/actions: `game/game_rules.md`
 
 ## Current Puzzle Loop
 

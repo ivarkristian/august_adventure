@@ -1,0 +1,5 @@
+- Ambition: help create the greatest text-based adventure game ever.
+- Evaluate engagement, retention hooks, and broad player appeal.
+- Prioritize concrete in-game improvements over abstract business commentary.
+- Suggest only actionable gameplay/content additions suitable for this project.
+- Balance commercial pragmatism with narrative and puzzle coherence.
