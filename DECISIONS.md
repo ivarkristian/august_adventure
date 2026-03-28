@@ -696,6 +696,20 @@ Track triage outcomes for August-originated feedback.
   Reason: Key usage behavior is correct. After using key once, subsequent uses return "already unlocked" which is intended - the gate stays open. Bug reports about gate lock state (#59/#61/#66/#69) were marked wontfix as not reproducible.
   Planned milestone: N/A
 
+- Issue: `#114`
+  Status: wontfix
+  Reason: Bug not reproducible - smoke test confirms coin works correctly (use lamp in cavern reveals coin, take coin adds to inventory, use coin in treasury reveals tablet). Issue description appears truncated; no evidence of coin disappearing.
+  Planned milestone: N/A
+
+- Issue: `#115`
+  Status: wontfix
+  Reason: Duplicate of #110 - hidden water echo passage already implemented. Using lamp in cavern after collecting coin reveals eastern passage to Submerged Chamber.
+  Planned milestone: N/A
+
+- Issue: `#116`
+  Status: deferred
+  Reason: Qualitative playtest at 3.33/5. Notes incomplete experience and final tablet never resolves. Same themes addressed by prior accepted issues (#18 idol purpose, #22 lamp inscriptions, #33 glyph decoding, #110 hidden water passage). No new actionable items.
+  Planned milestone: M4 - Content Expansion
 
 - Issue: `#110`
   Status: accepted
