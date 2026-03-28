@@ -695,3 +695,41 @@ Track triage outcomes for August-originated feedback.
   Status: wontfix
   Reason: Key usage behavior is correct. After using key once, subsequent uses return "already unlocked" which is intended - the gate stays open. Bug reports about gate lock state (#59/#61/#66/#69) were marked wontfix as not reproducible.
   Planned milestone: N/A
+
+
+- Issue: `#110`
+  Status: accepted
+  Reason: Feature suggestion for Hidden Water Echo Passage. After collecting coin in cavern, using lamp again should reveal a hidden passage. Addresses "incomplete experience" feedback from qualitative reviews. Narrative fit HIGH (water echoes theme), location fit HIGH (cavern). Will implement: lamp in cavern after coin collected reveals hidden eastern passage.
+  Planned milestone: M3 - Polish
+  Implemented: Using lamp in cavern three times (after collecting coin) reveals hidden eastern passage to Submerged Chamber with final inscription.
+
+- Issue: `#111`
+  Status: wontfix
+  Reason: Duplicate of #105 - key on glyph already implemented in current codebase.
+  Planned milestone: N/A
+
+- Issue: `#108`
+  Status: wontfix
+  Reason: Tablet text already contains water echoes hint. Current text: "Seek the echoes where the water weeps. There, beneath the weight of ages, the true tablet awaits." Matches the requested clue theme.
+  Planned milestone: N/A
+
+- Issue: `#109`
+  Status: wontfix
+  Reason: Rooms already have rich sensory descriptions with environmental details. Additional sensory language deferred for scope control.
+  Planned milestone: M4 - Content Expansion
+
+- Issue: `#107`
+  Status: wontfix
+  Reason: Hidden passage revealed by idol already implemented. Placing idol on treasury pedestal reveals hidden alcove with verses.
+  Planned milestone: N/A
+
+- Issue: `#113`
+  Status: deferred
+  Reason: Qualitative playtest at 3.33/5 for current commit. Notes incomplete experience and final puzzle never resolves. Same themes addressed by prior accepted issues (#18 idol purpose, #22 lamp inscriptions, #33 glyph decoding, #110 hidden water passage). No new actionable items.
+  Planned milestone: M4 - Content Expansion
+
+- Issue: `#112`
+  Status: deferred
+  Reason: Qualitative playtest at 3.33/5. Same findings as #113. No new actionable items beyond accepted issues.
+  Planned milestone: M4 - Content Expansion
+

@@ -174,6 +174,10 @@ class GameEngine:
                     return "The bronze gate is locked. Try using the key here."
                 return f"The way {direction} is locked. You need the {required}."
 
+        if self.state.location == "cavern" and direction == "east":
+            if not self.state.flags.get("cavern_east_revealed"):
+                return "The eastern wall appears solid. Perhaps more light might reveal something hidden."
+
         self.state.location = room.exits[direction]
         return self.look()
 
@@ -229,6 +233,16 @@ class GameEngine:
                     "You sweep the lamp across the cavern walls. Water traces down from above, "
                     "thin threads catching the light before vanishing into the darkness. "
                     "Somewhere above, something holds the weight of ages\u2014and the memory of water."
+                )
+            if "coin" in self.state.inventory and not self.state.flags.get("cavern_east_revealed"):
+                self.state.flags["cavern_east_revealed"] = True
+                return (
+                    "You raise the lamp again, sweeping it across the eastern wall. "
+                    "The light catches something unexpected\u2014a section of stone that "
+                    "looks different from the rest. As you approach, ancient mechanisms grind "
+                    "to life, and a hidden wall slides aside, revealing a passage to the east "
+                    "leading deeper into the waterlogged depths. "
+                    "'The water echoes remember,' the inscription reads."
                 )
 
         if item == "lamp" and self.state.location == "foyer" and not self.state.flags.get("foyer_inscriptions_seen"):

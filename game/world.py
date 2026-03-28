@@ -39,9 +39,22 @@ def build_world() -> dict[str, Room]:
                 "A black-stone cavern swallows the light, each drip echoing like a distant clock. "
                 "A bronze gate seals the northern tunnel while the western passage returns to the foyer."
             ),
-            exits={"west": "foyer", "north": "treasury"},
+            exits={"west": "foyer", "north": "treasury", "east": "submerged_chamber"},
             items=[],
             locks={"north": "key"},
+        ),
+        "submerged_chamber": Room(
+            name="Submerged Chamber",
+            description=(
+                "A vast underground chamber filled with still, dark water that reflects no light. "
+                "Ancient stone pillars rise from the water, covered in phosphorescent moss that casts "
+                "an eerie blue-green glow. In the center, a small island holds a stone plinth with "
+                "a final inscription: 'You have followed the water's memory through darkness. "
+                "The true treasure was the journey itself—and the wisdom gained along the way.' "
+                "The passage back to the cavern lies to the west."
+            ),
+            exits={"west": "cavern"},
+            items=[],
         ),
         "treasury": Room(
             name="Treasury",
