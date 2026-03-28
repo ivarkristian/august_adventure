@@ -314,7 +314,7 @@ class GameEngine:
             return (
                 "You place the coin in the pedestal slot. A hidden compartment slides open, "
                 "revealing a weathered tablet. Strange symbols cover its surface, hinting at a purpose "
-                "beyond these ruins."
+                "beyond these ruins. You may now take the tablet."
             )
 
         if item == "idol" and self.state.location == "treasury":

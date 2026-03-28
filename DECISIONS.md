@@ -747,3 +747,29 @@ Track triage outcomes for August-originated feedback.
   Reason: Qualitative playtest at 3.33/5. Same findings as #113. No new actionable items beyond accepted issues.
   Planned milestone: M4 - Content Expansion
 
+- Issue: `#114`
+  Status: wontfix
+  Reason: Bug not reproducible - smoke test confirms coin works correctly (use lamp in cavern reveals coin, take coin adds to inventory, use coin in treasury reveals tablet). Coin appears correctly in inventory.
+  Planned milestone: N/A
+
+- Issue: `#115`
+  Status: wontfix
+  Reason: Duplicate of #110 - hidden water echo passage already implemented. Using lamp in cavern after collecting coin reveals hidden eastern passage to Submerged Chamber.
+  Planned milestone: N/A
+
+- Issue: `#116`
+  Status: deferred
+  Reason: Qualitative playtest at 3.33/5. Notes incomplete experience and final tablet never resolves. Same themes addressed by prior accepted issues (#18 idol purpose, #22 lamp inscriptions, #33 glyph decoding, #110 hidden water passage). No new actionable items.
+  Planned milestone: M4 - Content Expansion
+
+- Issue: `#117`
+  Status: accepted
+  Reason: Bug report about missing item feedback after coin usage. The message mentions tablet but could be clearer that it's now available to take. Narrative fit HIGH (reward feedback), location fit HIGH (treasury). Will improve message clarity.
+  Planned milestone: M3 - Polish
+  Implemented: Improved coin usage message to explicitly state "You may now take the tablet."
+
+- Issue: `#118`
+  Status: deferred
+  Reason: Qualitative playtest at 3.33/5. Same findings as #116/#113. No new actionable items beyond accepted issues.
+  Planned milestone: M4 - Content Expansion
+
