@@ -2603,9 +2603,10 @@ def main() -> int:
                 if not isinstance(feature, dict):
                     continue
                 if role_key == "publisher":
-                    if not bool(feature.get("concrete_gameplay_change")):
-                        continue
-                    if not is_concrete_gameplay_feature(feature, gameplay_terms):
+                    if not (
+                        bool(feature.get("concrete_gameplay_change"))
+                        or is_concrete_gameplay_feature(feature, gameplay_terms)
+                    ):
                         continue
                 issues.append(build_feature_issue(sha, role_key, feature, test_results))
         if review_meaningful:
