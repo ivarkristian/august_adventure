@@ -644,3 +644,29 @@ Track triage outcomes for August-originated feedback.
   Status: wontfix
   Reason: Functional lamp interaction already implemented (cavern, foyer, treasury).
   Planned milestone: N/A
+
+- Issue: `#106`
+  Status: deferred
+  Reason: Qualitative playtest at 3.5/5 for commit 34bef04a5023. Notes incomplete experience and final puzzle never resolves. Similar themes addressed by prior accepted issues (#18 idol purpose, #22 lamp inscriptions, #33 glyph decoding). No new actionable items beyond existing features.
+  Planned milestone: M4 - Content Expansion
+
+- Issue: `#104`
+  Status: wontfix
+  Reason: Lamp interaction in Treasury and Alcove already implemented in current codebase (engine.py lines 241-269). Using lamp in Treasury reveals hidden coin; using lamp in Alcove reveals altar inscriptions.
+  Planned milestone: N/A
+
+- Issue: `#105`
+  Status: accepted
+  Reason: Feature suggestion for key on glyph interaction. Currently glyphs reveal inscriptions with lamp and can be examined for clues. Adding key interaction provides alternative puzzle path. Narrative fit HIGH (glyphs in foyer), location fit HIGH (foyer). Will implement: use key on glyph reveals hidden clue or passage hint.
+  Planned milestone: M3 - Polish
+  Implemented: Using key on glyph in Foyer reveals secret compartment with additional lore hint.
+
+- Issue: `#103`
+  Status: deferred
+  Reason: Qualitative playtest at 3.5/5 for commit 56080415190b. Notes solid atmospheric core but incomplete experience. Same themes as #106 addressed by prior accepted issues. No new actionable items.
+  Planned milestone: M4 - Content Expansion
+
+- Issue: `#99`
+  Status: wontfix
+  Reason: Key usage behavior is correct. After using key once, subsequent uses return "already unlocked" which is intended - the gate stays open. Bug reports about gate lock state (#59/#61/#66/#69) were marked wontfix as not reproducible.
+  Planned milestone: N/A

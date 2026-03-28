@@ -275,6 +275,21 @@ class GameEngine:
             self.state.flags["unlock:cavern:north"] = True
             return "You work the key into an old lock. The bronze gate clicks open."
 
+        if item == "key" and self.state.location == "foyer":
+            if self.state.flags.get("glyph_key_used"):
+                return "You've already unlocked the glyph's secret."
+            if not self.state.flags.get("foyer_inscriptions_seen"):
+                return "The glyphs are too faded to reveal anything to a key. Try using the lamp first."
+            self.state.flags["glyph_key_used"] = True
+            return (
+                "You press the key against a glyph. Mechanisms grind deep within the walls. "
+                "A hidden compartment springs open beside the eastern passage, "
+                "revealing a fragment of ancient text: "
+                "'The worthy place what watches upon the resting place. "
+                "The alcove remembers what the vault forgets.' "
+                "The compartment then seals itself, its secret now yours."
+            )
+
         if item == "coin" and self.state.location == "treasury":
             if self.state.flags.get("coin_offered"):
                 return "The pedestal has already accepted your coin."
@@ -441,6 +456,9 @@ class GameEngine:
 
         if item == "lamp" and self.state.location == "ancient_alcove":
             return self.use(Command(action="use", target="lamp"))
+
+        if item == "key" and self.state.location == "foyer":
+            return self.use(Command(action="use", target="key"))
 
         return f"You try giving the {item}, but nothing happens."
 
