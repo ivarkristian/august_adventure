@@ -37,9 +37,9 @@ Canonical automation prompt context sources:
 
 ## Current Puzzle Loop
 
-- Find the `key` in the foyer and `use key` in the cavern to open the north gate.
-- Use the `lamp` in the cavern to reveal a hidden `coin`.
-- In the treasury, `use coin` at the pedestal to reveal a `tablet` reward.
+- Core progression is built around discovery and gated exploration across connected rooms.
+- Key items such as the `key`, `lamp`, `coin`, and `tablet` matter to progression, but the game expects players to infer their best uses from context.
+- Environmental details, inscriptions, and room interactions are meant to guide experimentation toward narrative payoff.
 
 ## Test and Playthrough
 

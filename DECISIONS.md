@@ -576,12 +576,37 @@ Track triage outcomes for August-originated feedback.
 
 - Issue: `#99`
   Status: wontfix
-  Reason: Bug report about key re-use. Current behavior returns "already unlocked" which is correct - the gate stays open after first use. Prior gate lock issues (#59/#61/#66/#69) were marked wontfix as not reproducible.
+  Reason: Key usage behavior is correct. After using key once, subsequent uses return "already unlocked" which is intended - the gate stays open. Bug reports about gate lock state (#59/#61/#66/#69) were marked wontfix as not reproducible.
   Planned milestone: N/A
 
 - Issue: `#100`
   Status: wontfix
-  Reason: Give command already implemented per #87.
+  Reason: Give command already implemented in current codebase (engine.py lines 439-463). Commands 'give coin', 'give idol', 'give tablet', 'give lamp', 'give key' all work correctly.
+  Planned milestone: N/A
+
+- Issue: `#102`
+  Status: wontfix
+  Reason: Lamp interaction in Treasury already implemented (engine.py lines 241-254). Using lamp reveals hidden coin near pedestal base.
+  Planned milestone: N/A
+
+- Issue: `#103`
+  Status: deferred
+  Reason: Qualitative playtest at 3.5/5. Notes solid atmospheric core but incomplete experience. Same themes addressed by prior accepted issues (#18 idol purpose, #22 lamp inscriptions, #33 glyph decoding, #105 key on glyph). No new actionable items beyond existing features.
+  Planned milestone: M4 - Content Expansion
+
+- Issue: `#104`
+  Status: wontfix
+  Reason: Lamp interaction in Treasury and Alcove already implemented (engine.py lines 241-269). Using lamp in Treasury reveals coin; using lamp in Alcove reveals altar inscriptions.
+  Planned milestone: N/A
+
+- Issue: `#106`
+  Status: deferred
+  Reason: Qualitative playtest at 3.5/5 for commit 34bef04a5023. Notes incomplete experience and final puzzle never resolves. Similar themes addressed by prior accepted issues (#18 idol purpose, #22 lamp inscriptions, #33 glyph decoding, #105 key on glyph). No new actionable items beyond existing features.
+  Planned milestone: M4 - Content Expansion
+
+- Issue: `#98`
+  Status: wontfix
+  Reason: Tablet use in Ancient Alcove already implemented (engine.py lines 319-335). Using tablet in alcove reveals final verses about the treasure chamber.
   Planned milestone: N/A
 
 - Issue: `#97`
