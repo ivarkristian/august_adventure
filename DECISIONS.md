@@ -558,3 +558,89 @@ Track triage outcomes for August-originated feedback.
   Status: wontfix
   Reason: Gate lock state working correctly.
   Planned milestone: N/A
+
+- Issue: `#102`
+  Status: wontfix
+  Reason: Duplicate of #91 - lamp reveals coin in Treasury already implemented.
+  Planned milestone: N/A
+
+- Issue: `#103`
+  Status: deferred
+  Reason: Qualitative review at 3.5/5. Notes solid atmosphere but incomplete experience. Same themes addressed by accepted issues (#18 idol purpose, #22 lamp inscriptions, #33 glyph decoding). No new actionable items.
+  Planned milestone: M4 - Content Expansion
+
+- Issue: `#101`
+  Status: wontfix
+  Reason: Duplicate of #18 - idol-triggered secret compartment already implemented.
+  Planned milestone: N/A
+
+- Issue: `#99`
+  Status: wontfix
+  Reason: Bug report about key re-use. Current behavior returns "already unlocked" which is correct - the gate stays open after first use. Prior gate lock issues (#59/#61/#66/#69) were marked wontfix as not reproducible.
+  Planned milestone: N/A
+
+- Issue: `#100`
+  Status: wontfix
+  Reason: Give command already implemented per #87.
+  Planned milestone: N/A
+
+- Issue: `#97`
+  Status: accepted
+  Reason: Bug report - lamp has no effect in Ancient Alcove. Treasury lamp implemented in #82. Need to add lamp interaction in ancient_alcove. Narrative fit HIGH (lamp reveals details), location fit HIGH (Ancient Alcove).
+  Planned milestone: M3 - Polish
+  Implemented: Using lamp in Ancient Alcove reveals hidden inscriptions on the altar.
+
+- Issue: `#98`
+  Status: wontfix
+  Reason: Tablet use in Ancient Alcove already implemented per #83.
+  Planned milestone: N/A
+
+- Issue: `#96`
+  Status: wontfix
+  Reason: Lamp-activated hidden coin in cavern already implemented.
+  Planned milestone: N/A
+
+- Issue: `#95`
+  Status: wontfix
+  Reason: Interactive glyph clue system already implemented (lamp reveals inscriptions, examine glyphs).
+  Planned milestone: N/A
+
+- Issue: `#94`
+  Status: wontfix
+  Reason: Echo chamber puzzle already implemented (listen at trailhead).
+  Planned milestone: N/A
+
+- Issue: `#92`
+  Status: wontfix
+  Reason: Hidden water passage already implemented (listen at trailhead reveals hidden passage).
+  Planned milestone: N/A
+
+- Issue: `#93`
+  Status: wontfix
+  Reason: Interactive glyph in Foyer already implemented (examine after lamp).
+  Planned milestone: N/A
+
+- Issue: `#90`
+  Status: wontfix
+  Reason: Idol-triggered secret compartment already implemented (per #18).
+  Planned milestone: N/A
+
+- Issue: `#88`
+  Status: wontfix
+  Reason: Hidden water-echo passage already implemented (lamp in cavern reveals water traces).
+  Planned milestone: N/A
+
+- Issue: `#89`
+  Status: deferred
+  Reason: Ancient Alcove stone-weight puzzle deferred to future milestone per prior decision.
+  Planned milestone: M4 - Content Expansion
+
+- Issue: `#85`
+  Status: deferred
+  Reason: Context-sensitive hint system deferred to future milestone per prior decision.
+  Planned milestone: M4 - Content Expansion
+
+- Issue: `#86`
+  Status: wontfix
+  Reason: Functional lamp interaction already implemented (cavern, foyer, treasury).
+  Planned milestone: N/A

@@ -253,6 +253,21 @@ class GameEngine:
                 "illuminating the pedestal and the coin you discovered."
             )
 
+        if item == "lamp" and self.state.location == "ancient_alcove":
+            if not self.state.flags.get("alcove_lamp_revealed"):
+                self.state.flags["alcove_lamp_revealed"] = True
+                return (
+                    "You raise the lamp, bringing its amber glow to the ancient alcove. "
+                    "The light reveals faint inscriptions along the altar's edges, "
+                    "hidden in the shadows: 'The river's tear opens the heart. "
+                    "The stone's memory holds the path.'"
+                )
+            return (
+                "You raise the lamp again. The inscriptions on the altar glow softly "
+                "in the amber light: 'The river's tear opens the heart. "
+                "The stone's memory holds the path.'"
+            )
+
         if item == "key" and self.state.location == "cavern":
             if self.state.flags.get("cavern_north_unlocked"):
                 return "The bronze gate is already unlocked."
@@ -422,6 +437,9 @@ class GameEngine:
             return self.use(Command(action="use", target="tablet"))
 
         if item == "lamp" and self.state.location == "treasury":
+            return self.use(Command(action="use", target="lamp"))
+
+        if item == "lamp" and self.state.location == "ancient_alcove":
             return self.use(Command(action="use", target="lamp"))
 
         return f"You try giving the {item}, but nothing happens."
