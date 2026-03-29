@@ -308,7 +308,6 @@ class GameEngine:
             if self.state.flags.get("idol_placed"):
                 return "The idol already rests upon the pedestal."
             self.state.flags["idol_placed"] = True
-            self.state.inventory.remove("idol")
             if "idol" in self.current_room().items:
                 self.current_room().items.remove("idol")
             return (

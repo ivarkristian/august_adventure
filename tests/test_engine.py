@@ -94,7 +94,7 @@ def test_idol_placement_reveals_alcove() -> None:
     assert "forgotten verses" in use_idol.lower()
 
     inv, _ = engine.step("inventory")
-    assert "idol" not in inv
+    assert "idol" in inv
 
     look, _ = engine.step("look")
     assert "idol" in look.lower()
@@ -210,3 +210,47 @@ def test_ancient_alcove_exploration() -> None:
     listen_result, _ = engine.step("listen")
     assert "water" in listen_result.lower()
     assert "drip" in listen_result.lower()
+
+
+def test_stone_puzzle_reveals_true_tablet() -> None:
+    engine = GameEngine(seed=11)
+
+    engine.step("take lamp")
+    engine.step("north")
+    engine.step("take key")
+    engine.step("east")
+    engine.step("use key")
+    engine.step("use lamp")
+    engine.step("take coin")
+    engine.step("north")
+    engine.step("use coin")
+    engine.step("take tablet")
+    engine.step("take idol")
+    engine.step("use idol")
+    engine.step("south")
+    engine.step("west")
+    engine.step("south")
+    engine.step("listen")
+    engine.step("east")
+    engine.step("east")
+
+    loc = engine.state.location
+    print(f"Location: {loc}")
+    assert loc == "ancient_alcove"
+
+    use_coin, _ = engine.step("use coin")
+    print(f"use coin: {use_coin}")
+    assert "grooves" in use_coin.lower() or "illuminate" in use_coin.lower()
+
+    use_idol, _ = engine.step("use idol")
+    assert "grooves" in use_idol.lower() or "intensifies" in use_idol.lower()
+
+    use_lamp, _ = engine.step("use lamp")
+    assert "true tablet" in use_lamp.lower() or "radiant" in use_lamp.lower()
+    assert "hidden compartment" in use_lamp.lower()
+
+    take_true, _ = engine.step("take true_tablet")
+    assert "Taken: true_tablet." == take_true
+
+    inv, _ = engine.step("inventory")
+    assert "true_tablet" in inv

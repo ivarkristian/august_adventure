@@ -805,3 +805,19 @@ Track triage outcomes for August-originated feedback.
   Reason: Missing item feedback after coin usage already addressed in #117/#119. Current message explicitly states "You may now take the tablet."
   Planned milestone: N/A
 
+- Issue: `#125`
+  Status: wontfix
+  Reason: Duplicate of #123 - True Tablet Retrieval Puzzle already implemented. Stone-weight puzzle in Ancient Alcove requires coin->idol->lamp sequence to reveal true tablet.
+  Planned milestone: N/A
+
+- Issue: `#126`
+  Status: deferred
+  Reason: Qualitative playtest at 3.33/5. Same findings as prior reviews - incomplete experience, final puzzle never resolves. No new actionable items beyond accepted issues (#123 stone puzzle provides resolution).
+  Planned milestone: M4 - Content Expansion
+
+- Issue: `[Idol Consumption Bug]`
+  Status: accepted
+  Reason: Bug fix - idol was removed from inventory when placed on treasury pedestal, preventing completion of the stone puzzle in ancient_alcove (the final puzzle). Players need the idol for both puzzles. Narrative fit HIGH (idol has mystical properties), location fit HIGH (treasury and alcove). Fix: idol remains in inventory after placement.
+  Planned milestone: M3 - Polish
+  Implemented: Idol now stays in inventory when placed on treasury pedestal, allowing it to be used in the ancient_alcove stone puzzle.
+
