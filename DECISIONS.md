@@ -768,6 +768,17 @@ Track triage outcomes for August-originated feedback.
   Planned milestone: M3 - Polish
   Implemented: Improved coin usage message to explicitly state "You may now take the tablet."
 
+- Issue: `#119`
+  Status: wontfix
+  Reason: Bug already addressed. Coin usage message explicitly states "You may now take the tablet." (engine.py:317). Smoke test confirms correct behavior.
+  Planned milestone: N/A
+  Implemented: Improved coin usage message to explicitly state "You may now take the tablet."
+
+- Issue: `#120`
+  Status: deferred
+  Reason: Qualitative playtest at 3.33/5. Same findings as prior reviews - incomplete experience, final puzzle never resolves. The alcove tablet provides philosophical resolution ("true tablet is your understanding"). No new actionable items.
+  Planned milestone: M4 - Content Expansion
+
 - Issue: `#118`
   Status: deferred
   Reason: Qualitative playtest at 3.33/5. Same findings as #116/#113. No new actionable items beyond accepted issues.
