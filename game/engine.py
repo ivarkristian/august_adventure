@@ -30,7 +30,7 @@ HELP_TEXT = """Commands:
 class GameState:
     location: str = "trailhead"
     inventory: list[str] = field(default_factory=list)
-    flags: dict[str, bool] = field(default_factory=dict)
+    flags: dict[str, bool | list[str]] = field(default_factory=dict)
 
 
 class GameEngine:
@@ -268,19 +268,7 @@ class GameEngine:
             )
 
         if item == "lamp" and self.state.location == "ancient_alcove":
-            if not self.state.flags.get("alcove_lamp_revealed"):
-                self.state.flags["alcove_lamp_revealed"] = True
-                return (
-                    "You raise the lamp, bringing its amber glow to the ancient alcove. "
-                    "The light reveals faint inscriptions along the altar's edges, "
-                    "hidden in the shadows: 'The river's tear opens the heart. "
-                    "The stone's memory holds the path.'"
-                )
-            return (
-                "You raise the lamp again. The inscriptions on the altar glow softly "
-                "in the amber light: 'The river's tear opens the heart. "
-                "The stone's memory holds the path.'"
-            )
+            return self._handle_stone_puzzle("lamp")
 
         if item == "key" and self.state.location == "cavern":
             if self.state.flags.get("cavern_north_unlocked"):
@@ -308,11 +296,10 @@ class GameEngine:
             if self.state.flags.get("coin_offered"):
                 return "The pedestal has already accepted your coin."
             self.state.flags["coin_offered"] = True
-            self.state.inventory.remove("coin")
             if "tablet" not in self.current_room().items:
                 self.current_room().items.append("tablet")
             return (
-                "You place the coin in the pedestal slot. A hidden compartment slides open, "
+                "You slide the coin into the pedestal slot. A hidden compartment clicks open, "
                 "revealing a weathered tablet. Strange symbols cover its surface, hinting at a purpose "
                 "beyond these ruins. You may now take the tablet."
             )
@@ -332,6 +319,15 @@ class GameEngine:
 
         if item == "tablet":
             if self.state.location == "ancient_alcove":
+                if self.state.flags.get("stone_puzzle_solved"):
+                    return (
+                        "The true tablet rests in your hands, warm with ancient wisdom. "
+                        "Its surface bears the complete truth: "
+                        "'The river's tear opens the way. The stone's memory guides. "
+                        "The idol's gaze seals the truth. "
+                        "The treasure was never gold or gem—the builders' wisdom, "
+                        "passed through those who seek. You have found it.'"
+                    )
                 if not self.state.flags.get("alcove_tablet_read"):
                     self.state.flags["alcove_tablet_read"] = True
                     return (
@@ -362,7 +358,126 @@ class GameEngine:
                 "The idol's gaze seals the truth.'"
             )
 
+        if self.state.location == "ancient_alcove" and item in {"coin", "idol", "lamp"}:
+            return self._handle_stone_puzzle(item)
+
         return f"You try using the {item}, but nothing happens."
+
+    def _handle_stone_puzzle(self, item: str) -> str:
+        if item == "lamp":
+            if self.state.flags.get("stone_puzzle_solved"):
+                return "The stone lock already bears your offering. The true tablet is yours."
+            if self.state.flags.get("stone_puzzle_sequence"):
+                if item not in self.state.inventory:
+                    return f"You do not have the {item}."
+                raw_sequence = self.state.flags.get("stone_puzzle_sequence")
+                if isinstance(raw_sequence, list):
+                    sequence: list[str] = raw_sequence
+                else:
+                    sequence = []
+                sequence.append(item)
+                self.state.flags["stone_puzzle_sequence"] = sequence
+
+                expected_sequence = ["coin", "idol", "lamp"]
+
+                if sequence == expected_sequence:
+                    self.state.flags["stone_puzzle_solved"] = True
+                    self.state.flags.pop("stone_puzzle_sequence", None)
+                    if "true_tablet" not in self.current_room().items:
+                        self.current_room().items.append("true_tablet")
+                    return (
+                        "You place the coin on the altar. Ancient grooves light with a faint blue glow. "
+                        "You add the idol. The light intensifies, tracing patterns across the stone. "
+                        "Finally, you place the lamp. The three elements align—water, stone, and sight. "
+                        "The altar shudders. A hidden compartment opens, revealing a radiant true tablet. "
+                        "Its surface bears the complete truth: "
+                        "'The river's tear opens the way. The stone's memory guides. "
+                        "The idol's gaze seals the truth.'"
+                    )
+
+                if len(sequence) < len(expected_sequence):
+                    remaining = len(expected_sequence) - len(sequence)
+                    if remaining == 2:
+                        return (
+                            f"You place the {item} on the altar. Faint grooves illuminate, "
+                            "but nothing further happens. Two more offerings are needed "
+                            "in the correct order to unlock the stone lock."
+                        )
+                    else:
+                        return (
+                            f"You place the {item} on the altar. The grooves glow brighter, "
+                            "but then fade. One more offering in the correct order is needed."
+                        )
+
+                self.state.flags.pop("stone_puzzle_sequence", None)
+                return (
+                    f"You place the {item} on the altar. The grooves flash once and go dark. "
+                    "The stone lock does not respond. You sense the order was incorrect."
+                )
+            if not self.state.flags.get("alcove_lamp_revealed"):
+                self.state.flags["alcove_lamp_revealed"] = True
+                return (
+                    "You raise the lamp, bringing its amber glow to the ancient alcove. "
+                    "The light reveals faint inscriptions along the altar's edges, "
+                    "hidden in the shadows: 'The river's tear opens the heart. "
+                    "The stone's memory holds the path.'"
+                )
+            return (
+                "You raise the lamp again. The inscriptions on the altar glow softly "
+                "in the amber light: 'The river's tear opens the heart. "
+                "The stone's memory holds the path.'"
+            )
+
+        if self.state.flags.get("stone_puzzle_solved"):
+            return "The stone lock already bears your offering. The true tablet is yours."
+
+        if item not in self.state.inventory:
+            return f"You do not have the {item}."
+
+        raw_sequence = self.state.flags.get("stone_puzzle_sequence")
+        if isinstance(raw_sequence, list):
+            sequence: list[str] = raw_sequence
+        else:
+            sequence = []
+        sequence.append(item)
+        self.state.flags["stone_puzzle_sequence"] = sequence
+
+        expected_sequence = ["coin", "idol", "lamp"]
+
+        if sequence == expected_sequence:
+            self.state.flags["stone_puzzle_solved"] = True
+            self.state.flags.pop("stone_puzzle_sequence", None)
+            if "true_tablet" not in self.current_room().items:
+                self.current_room().items.append("true_tablet")
+            return (
+                "You place the coin on the altar. Ancient grooves light with a faint blue glow. "
+                "You add the idol. The light intensifies, tracing patterns across the stone. "
+                "Finally, you place the lamp. The three elements align—water, stone, and sight. "
+                "The altar shudders. A hidden compartment opens, revealing a radiant true tablet. "
+                "Its surface bears the complete truth: "
+                "'The river's tear opens the way. The stone's memory guides. "
+                "The idol's gaze seals the truth.'"
+            )
+
+        if len(sequence) < len(expected_sequence):
+            remaining = len(expected_sequence) - len(sequence)
+            if remaining == 2:
+                return (
+                    f"You place the {item} on the altar. Faint grooves illuminate, "
+                    "but nothing further happens. Two more offerings are needed "
+                    "in the correct order to unlock the stone lock."
+                )
+            else:
+                return (
+                    f"You place the {item} on the altar. The grooves glow brighter, "
+                    "but then fade. One more offering in the correct order is needed."
+                )
+
+        self.state.flags.pop("stone_puzzle_sequence", None)
+        return (
+            f"You place the {item} on the altar. The grooves flash once and go dark. "
+            "The stone lock does not respond. You sense the order was incorrect."
+        )
 
     def listen(self) -> str:
         if self.state.location == "trailhead":

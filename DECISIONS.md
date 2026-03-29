@@ -784,3 +784,24 @@ Track triage outcomes for August-originated feedback.
   Reason: Qualitative playtest at 3.33/5. Same findings as #116/#113. No new actionable items beyond accepted issues.
   Planned milestone: M4 - Content Expansion
 
+- Issue: `#124`
+  Status: deferred
+  Reason: Qualitative playtest at 3.33/5 for current commit. Same findings as prior reviews - incomplete experience, final puzzle never resolves. No new actionable items beyond accepted issues (#123 True Tablet Puzzle addresses final puzzle resolution).
+  Planned milestone: M4 - Content Expansion
+
+- Issue: `#123`
+  Status: accepted
+  Reason: Feature suggestion for True Tablet Retrieval Puzzle in Ancient Alcove. Provides a satisfying conclusion that ties together discovered items and requires critical thinking. Addresses "final puzzle never resolves" feedback from qualitative reviews. Narrative fit HIGH (lore-rich ending), location fit HIGH (Ancient Alcove is terminal room). Will implement: stone-weight puzzle requiring lamp/coin/idol in correct sequence reveals true tablet.
+  Planned milestone: M3 - Polish
+  Implemented: Stone-weight puzzle in Ancient Alcove requires using coin -> idol -> lamp on altar to reveal true tablet. Correct sequence unlocks hidden compartment with final verses.
+
+- Issue: `#122`
+  Status: wontfix
+  Reason: Submerged Chamber room already exists (world.py lines 46-58) and is accessible via cavern east after using lamp three times with coin in inventory. Current ending inscription provides philosophical conclusion. More complex puzzle deferred for scope control.
+  Planned milestone: N/A
+
+- Issue: `#121`
+  Status: wontfix
+  Reason: Missing item feedback after coin usage already addressed in #117/#119. Current message explicitly states "You may now take the tablet."
+  Planned milestone: N/A
+

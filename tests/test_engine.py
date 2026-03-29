@@ -48,7 +48,7 @@ def test_coin_unlocks_tablet_reward() -> None:
     assert "Taken: tablet." == take_tablet
 
     inv, _ = engine.step("inventory")
-    assert "coin" not in inv
+    assert "coin" in inv
     assert "tablet" in inv
 
 
